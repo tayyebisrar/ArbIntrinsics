@@ -1,5 +1,6 @@
 #include <stdint.h>  // needed for uint64_t, uint8_t, etc.
 #include <stddef.h>
+#include <stdbool.h> // for bool (sign)
 
 typedef uint64_t limb_t;
 
@@ -8,7 +9,7 @@ typedef struct {
     size_t length;       // how many limbs are used
     size_t capacity;     // how many limbs are allocated
     int exponent;        // unbiased exponent
-    int sign;            // 0 for +, 1 for -
+    bool sign;            // 0 for +, 1 for -
 } arbfloat_t;
 
 typedef enum{
