@@ -1,3 +1,6 @@
+#ifndef ARBINTRINSICS_H
+#define ARBINTRINSICS_H
+
 #include <stdint.h>  // needed for uint64_t, uint8_t, etc.
 #include <stddef.h>
 #include <stdbool.h> // for bool (sign)
@@ -18,3 +21,5 @@ typedef enum{
     RNDU,// Round up (+inf)
     RNDD // Round down (-inf)
 }roundmode;
+
+#endif
