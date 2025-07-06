@@ -3,17 +3,27 @@
 #include <time.h>
 #include <arbintrinsics.h>
 
-void display_arbfloat(arbfloat_t *x);
-void tobinary(limb_t *n);
+void display_arbfloat(arbfloat_t *x, int oneline);
+void tobinary(limb_t n);
 limb_t rand64(void);
 void generate_random_arbfloat(arbfloat_t *x, size_t length);
 
-void display_arbfloat(arbfloat_t *x){
-    for (int i=0; i<x->length; i++){
-        //printf("Limb %d: %lld\n", i, (x->limbs[i]));
-        printf("Limb %d:", i);
-        tobinary(&(x->limbs[i]));
+void display_arbfloat(arbfloat_t *x, int oneline){
+    if (oneline){
+        printf("Number:");
+        for (int i=0; i<x->length; i++){
+            //printf("Limb %d: %lld\n", i, (x->limbs[i]));
+            tobinary((x->limbs[i]));
+        }
         printf("\n");
+    }
+    else{
+        for (int i=0; i<x->length; i++){
+            //printf("Limb %d: %lld\n", i, (x->limbs[i]));
+            printf("Limb %d:", i);
+            tobinary((x->limbs[i]));
+            printf("\n");
+        }
     }
 }
 
@@ -29,14 +39,14 @@ void generate_random_arbfloat(arbfloat_t *x, size_t length) {
     }
 }
 
-void tobinary(limb_t *n) {
+void tobinary(limb_t n) {
     char binary[65]; // 64 bits and null
     binary[64] = '\0';
     for (int i = 63; i >= 0; i--) {
-        binary[i] = (*n & 1) ? '1' : '0'; // Check the least significant bit
-        *n >>= 1; // Right shift to process the next bit
+        binary[i] = (n & 1) ? '1' : '0'; // Check the least significant bit
+        n >>= 1; // Right shift to process the next bit
     }
-    printf("%s\n", binary); // Print the binary representation
+    printf("%s", binary); // Print the binary representation
 }
 
 limb_t rand64(void) {

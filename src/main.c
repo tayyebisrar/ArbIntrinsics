@@ -7,6 +7,12 @@
 int main(void){
     srand(time(NULL));
     arbfloat_t x;
-    generate_random_arbfloat(&x, 4); // Generate a random arbfloat with 4 limbs
-    display_arbfloat(&x);
+    generate_random_arbfloat(&x, 1); // Generate a random arbfloat with 4 limbs
+    display_arbfloat(&x, 1);
+    left_shift(&x, 1);
+    printf("Shifted left once: \n");
+    display_arbfloat(&x, 1);
+    left_shift(&x, 1);
+    printf("Shifted left twice: \n");
+    display_arbfloat(&x, 1);
 }
