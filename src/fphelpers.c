@@ -18,13 +18,7 @@ void normalise(arbfloat_t *x){
         // number is all zeroes
         return;
     }
-    for (int i=0; i<NElimb; i++){ // for each limb 
-        left_shift(&x, 63);
-        left_shift(&x, 1);
-        x->length--;
-    }
 
-    (x->limbs[NElimb]);
     // shift to it
     // return
 }
@@ -85,9 +79,9 @@ void left_shift(arbfloat_t *x, int n){
 void right_shift(arbfloat_t *x, int n, uint8_t *stickyr){ // for doing (R+T)
     // take the last 2 bits, can be done at start, and do last OR secondlast = stickyr
     // Do the first 4 separately, since otherwise it will access limbs[-1]]
-
-    limb_t mask = (((limb_t)9223372036854775808 >> (n-1)) - 1);
-    for (int i=1, a=min(4, x->length); i<a ; i++){
+    x->limbs[0] >>= n; // shift the first limb
+    limb_t mask = (((limb_t)9223372036854775808ULL >> (n-1)) - 1);
+    for (int a=1, i=((x->length < 4 ? x->length : 4))-1; i>=a ; i--){
         x->limbs[i] >>= n;
         x->limbs[i] &= mask; // clear the first k bits
         if (i != 0){
@@ -111,16 +105,18 @@ void right_shift(arbfloat_t *x, int n, uint8_t *stickyr){ // for doing (R+T)
 
         // take the last k bits from the previous limb (if it exists) and replace
         // the first k bits from the first limb, i.e. for (int i=63-k+1; i<=63; i++){limb4[i] = limb5[i]}
-        limb_t mask = (((limb_t)9223372036854775808 >> (n-1)) - 1); // bitmask, starts with 0 ks and then all 1s
+        limb_t mask = (((limb_t)9223372036854775808ULL >> (n-1)) - 1); // bitmask, starts with 0 ks and then all 1s
         x->limbs[i] &= mask; // clear the first k bits
         limb_t limb5 = x->limbs[i-1] << (64-n); // prev limb shifted up, going from lllkk to kk000..00
         x->limbs[i] |= limb5; // new bitmask to set limb4's last k bits via bitwise AND. i.e., 000..1010 | kk...00 = kk...1010
     }
-    for (int i=(x->length/4)*4; i<x->length; i++){    
-        x->limbs[i] >>= n;
-        x->limbs[i] &= mask; // clear the first k bits
-        limb_t limb5 = x->limbs[i-1] << (64-n); // next limb shifted up, going from lllkk to kk000..00
-        x->limbs[i] |= limb5; // new bitmask to set limb4's last k bits via bitwise AND. i.e., 000..1010 | kk...00 = kk...1010
+    if (x->length>4){
+        for (int i=x->length-1; i>=(x->length/4)*4; i--){    
+            x->limbs[i] >>= n;
+            x->limbs[i] &= mask; // clear the first k bits
+            limb_t limb5 = x->limbs[i-1] << (64-n); // next limb shifted up, going from lllkk to kk000..00
+            x->limbs[i] |= limb5; // new bitmask to set limb4's last k bits via bitwise AND. i.e., 000..1010 | kk...00 = kk...1010
+        }
     }
 
     // first limb will have garbage values at the start so need to clear them
