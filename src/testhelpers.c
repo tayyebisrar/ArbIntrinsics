@@ -3,12 +3,12 @@
 #include <time.h>
 #include <arbintrinsics.h>
 
-void display_arbfloat(arbfloat_t *x, int oneline);
+void display_arbfloat_limbs(arbfloat_t *x, int oneline);
 void tobinary(limb_t n);
 limb_t rand64(void);
 void generate_random_arbfloat(arbfloat_t *x, size_t length);
 
-void display_arbfloat(arbfloat_t *x, int oneline){
+void display_arbfloat_limbs(arbfloat_t *x, int oneline){
     if (oneline){
         printf("Number:");
         for (int i=0; i<x->length; i++){
@@ -57,4 +57,8 @@ limb_t rand64(void) {
         result |= ((limb_t)rand() << (i * 16)); // Shift each 16-bit chunk into the correct position
     }
     return result;
+}
+
+void display_normalised(arbfloat_t *x){
+    
 }
