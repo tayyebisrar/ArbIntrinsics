@@ -5,8 +5,30 @@
 #include <immintrin.h>
 #include <string.h>
 
+int leading_one(limb_t limb){ // might not be optimal
+    // return index from the left of the first 1 in a limb, e.g. 0000...0010 returns 62
+    limb_t x;
+    for (int i=63; i>=0; i--){
+        x = (1 << i);
+        if ((x & limb) != 0){
+            return i;
+        }
+    }
+}
+
 void normalise(arbfloat_t *x){
     // detect first 1 (if any) - LOD detector
+    int NElimb = 0; // index for first non-zero limb 0.1979
+    for (int i=0; i<x->length; i++){
+        if (x->limbs[i] != 0){
+            NElimb = i;
+            break;
+        } 
+    }
+    if (!NElimb){
+        // number is all zeroes
+        return;
+    }
     // shift to it
     // return
 }
@@ -65,6 +87,39 @@ void left_shift(arbfloat_t *x, int n){
 
 
 void right_shift(arbfloat_t *x, int n, uint8_t *stickyr){ // for doing (R+T)
-    // similar to left_shift but backwards
     // take the last 2 bits, can be done at start, and do last OR secondlast = stickyr
-} 
+     for (int i=0; i<x->length; i+=4){
+        __m256i curr4 = _mm256_loadu_si256((const __m256i *)(x->limbs + i));
+        // do standard shift to swap ks to the back - goes from lk to kl
+        __m256i l_part = _mm256_srli_epi64(curr4, n); // l ->
+        __m256i k_part = _mm256_slli_epi64(curr4, (64-n)); // k <-
+        __m256i swapped = _mm256_or_si256(l_part, k_part);
+        __m256i permuted = _mm256_permute4x64_epi64(swapped, 108); // (0b01101100), ipad for logic
+        // mask/separate the last 64-n bits from each integer in first (permuted) set
+        // and combine with the first n bits from each integer in second (permuted and shifted) set
+        __m256i lfinals = _mm256_srli_epi64(swapped, n); // l ->
+        __m256i kfinals = _mm256_slli_epi64(permuted, 64-n); // k <-
+        __m256i finalshifted = _mm256_or_si256(lfinals, kfinals);
+        _mm256_storeu_si256((__m256i *)(x->limbs + i), finalshifted);
+
+        // take the last k bits from the previous limb (if it exists) and replace
+        // the first k bits from the first limb, i.e. for (int i=63-k+1; i<=63; i++){limb4[i] = limb5[i]}
+        limb_t mask = (((limb_t)128 >> (n-1)) - 1); // bitmask, starts with 0 ks and then all 1s
+        x->limbs[i] &= mask; // clear the first k bits
+        limb_t limb5 = x->limbs[i-1] << (64-n); // next limb shifted up, going from lllkk to kk000..00
+        x->limbs[i] |= limb5; // new bitmask to set limb4's last k bits via bitwise AND. i.e., 000..1010 | kk...00 = kk...1010
+    }
+
+    limb_t mask = (((limb_t)128 >> (n-1)) - 1);
+    for (int i=(x->length/4)*4; i<x->length; i++){    
+        x->limbs[i] >>= n;
+        x->limbs[i] &= mask; // clear the first k bits
+        limb_t limb5 = x->limbs[i-1] << (64-n); // next limb shifted up, going from lllkk to kk000..00
+        x->limbs[i] |= limb5; // new bitmask to set limb4's last k bits via bitwise AND. i.e., 000..1010 | kk...00 = kk...1010
+    }
+    
+    // first limb will have garbage values at the start so need to clear them
+    x->limbs[0] &= mask;
+}
+
+
