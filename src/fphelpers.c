@@ -5,21 +5,36 @@
 #include <immintrin.h>
 #include <string.h>
 
+void left_shift(arbfloat_t *x, int n);
+void right_shift(arbfloat_t *x, int n, uint8_t *stickyr);
+void normalise(arbfloat_t *x);
+
+
 void normalise(arbfloat_t *x){
     // detect first 1 (if any) - LOD detector
-    int NElimb = 0; // index for first non-zero limb
-    for (int i=0; i<x->length; i++){
+    int NElimb = -1; // index of first non-zero limb
+    for (size_t i = 0; i < x->length; i++){
         if (x->limbs[i] != 0){
             NElimb = i;
             break;
         } 
     }
-    if (!NElimb && x->limbs[0] == 0){
-        // number is all zeroes
+    if (NElimb == -1) {
+        // All zero
+        x->length = 0;
+        x->exponent = 0;
+        x->sign = 0;
         return;
     }
-
-    // shift to it
+    int leadingzeroes = __builtin_clzll(x->limbs[NElimb]);
+    for (int i=0; i<NElimb; i++){
+        left_shift(x, 32);
+        left_shift(x, 32);
+        x->exponent -= 64;
+    }
+    left_shift(x, leadingzeroes);
+    x->exponent -= leadingzeroes;
+    return;
     // return
 }
 
@@ -77,6 +92,10 @@ void left_shift(arbfloat_t *x, int n){
 
 
 void right_shift(arbfloat_t *x, int n, uint8_t *stickyr){ // for doing (R+T)
+    if (stickyr != NULL) {
+        limb_t lost_bits = x->limbs[x->length-1] & ((1ULL << n) - 1); // bits shifted out
+        *stickyr = (lost_bits != 0) ? 1 : 0; // set sticky bit
+    }
     // take the last 2 bits, can be done at start, and do last OR secondlast = stickyr
     // Do the first 4 separately, since otherwise it will access limbs[-1]]
     x->limbs[0] >>= n; // shift the first limb

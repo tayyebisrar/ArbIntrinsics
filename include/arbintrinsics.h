@@ -12,7 +12,7 @@ typedef struct {
     size_t length;       // how many limbs are used
     size_t capacity;     // how many limbs are allocated
     int exponent;        // unbiased exponent
-    bool sign;            // 0 for +, 1 for -
+    bool sign;           // 0 for +, 1 for -
 } arbfloat_t;
 
 typedef enum{
@@ -21,5 +21,12 @@ typedef enum{
     RNDU,// Round up (+inf)
     RNDD // Round down (-inf)
 }roundmode;
+
+/*typedef struct {
+    arbfloat_t value;
+    bool sticky;
+    bool round;
+    bool guard;          // GRT bits
+} extended_result_t;*/
 
 #endif
