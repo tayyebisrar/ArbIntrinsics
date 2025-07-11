@@ -17,5 +17,5 @@ int main(void){
     }
     normalise(&x); // Normalise the arbfloat
     printf("Normalised:\n");
-    display_arbfloat_limbs(&x, 1);
+    display_normalised(&x);
 }

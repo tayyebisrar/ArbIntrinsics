@@ -3,14 +3,17 @@
 #include <time.h>
 #include <arbintrinsics.h>
 
+#define MAX_EXPONENT 1000
+#define MIN_EXPONENT -1000
+
 void display_arbfloat_limbs(arbfloat_t *x, int oneline);
 void tobinary(limb_t n);
 limb_t rand64(void);
 void generate_random_arbfloat(arbfloat_t *x, size_t length);
-
+ 
 void display_arbfloat_limbs(arbfloat_t *x, int oneline){
     if (oneline){
-        printf("Number:");
+        printf("Number: ");
         for (int i=0; i<x->length; i++){
             //printf("Limb %d: %lld\n", i, (x->limbs[i]));
             tobinary((x->limbs[i]));
@@ -25,16 +28,17 @@ void display_arbfloat_limbs(arbfloat_t *x, int oneline){
             printf("\n");
         }
     }
+    printf("\nExponent: %d\n", x->exponent);
 }
 
-void generate_random_arbfloat(arbfloat_t *x, size_t length) {
-    x->length = length;
-    x->capacity = length;
-    x->limbs = (limb_t *)malloc(length * sizeof(limb_t));
-    x->exponent = 0;
+void generate_random_arbfloat(arbfloat_t *x, size_t l) {
+    x->length = l;
+    x->capacity = l;
+    x->limbs = (limb_t *)malloc(l * sizeof(limb_t));
+    x->exponent = rand() % (MAX_EXPONENT - MIN_EXPONENT + 1); // =32767 % 1000 - (-1000) + 1 = 2001;
     x->sign = 0;
 
-    for (int i=0; i<length; i++){
+    for (int i=0; i<l; i++){
         x->limbs[i] = rand64();
     }
 }
@@ -60,5 +64,22 @@ limb_t rand64(void) {
 }
 
 void display_normalised(arbfloat_t *x){
-    
+    printf("Number: ");
+    if (x->sign){
+        printf("-");
+    }
+    char binary[64]; // 63 bits and null
+    binary[63] = '\0';
+    limb_t *n = malloc(sizeof(x->limbs[0]));
+    *n = x->limbs[0];
+    for (int i = 62; i >= 0; i--) {
+        binary[i] = (*n & 1) ? '1' : '0'; // Check the least significant bit
+        *n >>= 1; // Right shift to process the next bit
+    }
+    free(n);
+    printf("1.%s", binary);
+    if (x->length > 1){
+        printf("...");
+    }
+    printf(" x2^%d\n", x->exponent);
 }

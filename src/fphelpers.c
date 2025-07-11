@@ -40,6 +40,7 @@ void normalise(arbfloat_t *x){
 
 
 void left_shift(arbfloat_t *x, int n){
+    x->exponent -= n; // shift exponent down
     // CAN BE HERE TO SAVE COPYING -- limb_t mask = ~(((limb_t)1 << n) - 1); // bitmask, starts as all 1s and k 0s at the end
     // Runs from [0, length-4) to stop lengths divisible by 4 from running the last block SIMD
     for (int i=0; i<x->length - 4; i+=4){ // process 4 limbs (256 bits) at a time
@@ -92,6 +93,7 @@ void left_shift(arbfloat_t *x, int n){
 
 
 void right_shift(arbfloat_t *x, int n, uint8_t *stickyr){ // for doing (R+T)
+    x->exponent += n;
     if (stickyr != NULL) {
         limb_t lost_bits = x->limbs[x->length-1] & ((1ULL << n) - 1); // bits shifted out
         *stickyr = (lost_bits != 0) ? 1 : 0; // set sticky bit
