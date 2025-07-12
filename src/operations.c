@@ -3,6 +3,7 @@
 #include <arbintrinsics.h>
 #include <immintrin.h>
 #include <math.h>
+#include "fphelpers.h"
 
 void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *z){
     // REMEMBER TO CONSIDER LATER: x and y themselves are changed, might
@@ -18,17 +19,18 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *z){
     int d = op1->exponent - op2->exponent; // exp(op1) is always >= exp(op2), so d >= 0
     if (d > 0) { // if difference in exps
         // align op2 by right shifting
-        right_shift(op2, d, NULL);
+        uint8_t grt;
+        right_shift(op2, d, &grt);
         //op2->exponent -= d; // return exponent to original - the original operand shouldn't change
     }
 
     // if signs are same, add limbs. If signs different, subtract
     if (z->sign == op1->sign) {
-        add_limbwise(op1, op2, z);
+        //add_limbwise(op1, op2, z);
     } else {
-        sub_limbwise(op1, op2, z);
+        //sub_limbwise(op1, op2, z);
     }
     
     // normalise the result
-    normalise(z);
+    //normalise(z);
 }

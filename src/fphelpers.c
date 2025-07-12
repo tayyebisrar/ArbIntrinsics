@@ -85,11 +85,11 @@ void left_shift(arbfloat_t *x, int n){
         }
     }
 
-    // remove any now-empty limb(s) from the end of the array
+    /* remove any now-empty limb(s) from the end of the array
     while (x->length > 0 && x->limbs[x->length - 1] == 0) {
         //free((limb_t *)(x->limbs[x->capacity - 1])); wont work because it's a contiguous block of memory
         x->length--; // logically get rid of it like a stack pointer
-    }
+    }*/
 }
 
 
@@ -99,28 +99,19 @@ void right_shift(arbfloat_t *x, int n, uint8_t *grt){ // for doing (R+T)
     if (grt != NULL) {
         *grt = 0;
         limb_t lost_bits = x->limbs[x->length-1] & ((1ULL << n) - 1); // bits shifted out (= n <= 63 bits)
-        /*
-        int bitindex = (n-1 >= 0) ? n-1 : 0;
-        *grt = (lost_bits & (1ULL << (bitindex))) ? *grt + 4 : *grt; // (00000100) for G bit // check if MSB
-        bitindex = (n-2 >= 0) ? n-2 : 0;
-        *grt = (lost_bits & (1ULL << (bitindex))) ? *grt + 2 : *grt; // (00000010) for R bit
-        *grt = (lost_bits & ((1ULL << (bitindex)) - 1)) ? *grt + 1 : *grt; // (00000001) for T bit
-        */
-       if (n >= 1) *grt |= ((lost_bits >> (n-1)) & 1) << 2; // G
-       if (n >= 2) *grt |= ((lost_bits >> (n-2)) & 1) << 1; // R
-       if (n >= 3) *grt |= (lost_bits & ((1ULL << (n-2)) - 1)) ? 1 : 0; // T
+        if (n >= 1) *grt |= ((lost_bits >> (n-1)) & 1) << 2; // G
+        if (n >= 2) *grt |= ((lost_bits >> (n-2)) & 1) << 1; // R
+        if (n >= 3) *grt |= (lost_bits & ((1ULL << (n-2)) - 1)) ? 1 : 0; // T
     }
     // Do the first 4 separately, since otherwise it will access limbs[-1]]
-    x->limbs[0] >>= n; // shift the first limb
-    limb_t mask = (((limb_t)9223372036854775808ULL >> (n-1)) - 1);
-    for (int a=1, i=((x->length < 4 ? x->length : 4))-1; i>=a ; i--){
+    limb_t mask = (((limb_t)9223372036854775808ULL >> (n-1)) - 1); // mask of k 0s then all 1s
+    for (int i=((x->length < 4 ? x->length : 4))-1; i>=1 ; i--){ // handles limbs index 1-3 (whichever exist) in the order 3, 2, 1
         x->limbs[i] >>= n;
         x->limbs[i] &= mask; // clear the first k bits
-        if (i != 0){
-            limb_t limb5 = x->limbs[i-1] << (64-n); // next limb shifted up, going from lllkk to kk000..00
-            x->limbs[i] |= limb5; // new bitmask to set limb4's last k bits via bitwise AND. i.e., 000..1010 | kk...00 = kk...1010
-        }
+        limb_t limb5 = x->limbs[i-1] << (64-n); // prev limb shifted left, going from lllkk to kk000..00
+        x->limbs[i] |= limb5; // new bitmask to set limb4's last k bits via bitwise OR. i.e., 000..1010 | kk...00 = kk...1010
     }
+    x->limbs[0] >>= n; // shift the first limb (limb 0)
     for (int i=4; i<x->length; i+=4){
         __m256i curr4 = _mm256_loadu_si256((const __m256i *)(x->limbs + i));
         // do standard shift to swap ks to the back - goes from lk to kl
