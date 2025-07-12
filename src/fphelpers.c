@@ -6,11 +6,12 @@
 #include <string.h>
 
 void left_shift(arbfloat_t *x, int n);
-void right_shift(arbfloat_t *x, int n, uint8_t *stickyr);
+void right_shift(arbfloat_t *x, int n, uint8_t *grt);
 void normalise(arbfloat_t *x);
 
 
 void normalise(arbfloat_t *x){
+    // left only
     // detect first 1 (if any) - LOD detector
     int NElimb = -1; // index of first non-zero limb
     for (size_t i = 0; i < x->length; i++){
@@ -92,13 +93,23 @@ void left_shift(arbfloat_t *x, int n){
 }
 
 
-void right_shift(arbfloat_t *x, int n, uint8_t *stickyr){ // for doing (R+T)
+void right_shift(arbfloat_t *x, int n, uint8_t *grt){ // for doing (R+T)
     x->exponent += n;
-    if (stickyr != NULL) {
-        limb_t lost_bits = x->limbs[x->length-1] & ((1ULL << n) - 1); // bits shifted out
-        *stickyr = (lost_bits != 0) ? 1 : 0; // set sticky bit
+    // limb_t lost_bits is a 64-bit integer, while grt is a pointer to a uint8_t, which do not match in size
+    if (grt != NULL) {
+        *grt = 0;
+        limb_t lost_bits = x->limbs[x->length-1] & ((1ULL << n) - 1); // bits shifted out (= n <= 63 bits)
+        /*
+        int bitindex = (n-1 >= 0) ? n-1 : 0;
+        *grt = (lost_bits & (1ULL << (bitindex))) ? *grt + 4 : *grt; // (00000100) for G bit // check if MSB
+        bitindex = (n-2 >= 0) ? n-2 : 0;
+        *grt = (lost_bits & (1ULL << (bitindex))) ? *grt + 2 : *grt; // (00000010) for R bit
+        *grt = (lost_bits & ((1ULL << (bitindex)) - 1)) ? *grt + 1 : *grt; // (00000001) for T bit
+        */
+       if (n >= 1) *grt |= ((lost_bits >> (n-1)) & 1) << 2; // G
+       if (n >= 2) *grt |= ((lost_bits >> (n-2)) & 1) << 1; // R
+       if (n >= 3) *grt |= (lost_bits & ((1ULL << (n-2)) - 1)) ? 1 : 0; // T
     }
-    // take the last 2 bits, can be done at start, and do last OR secondlast = stickyr
     // Do the first 4 separately, since otherwise it will access limbs[-1]]
     x->limbs[0] >>= n; // shift the first limb
     limb_t mask = (((limb_t)9223372036854775808ULL >> (n-1)) - 1);
