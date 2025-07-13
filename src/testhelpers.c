@@ -25,10 +25,11 @@ void display_arbfloat_limbs(arbfloat_t *x, int oneline){
             //printf("Limb %d: %lld\n", i, (x->limbs[i]));
             printf("Limb %d:", i);
             tobinary((x->limbs[i]));
+            printf(" (%llu)", x->limbs[i]);
             printf("\n");
         }
     }
-    printf("\nExponent: %d\n", x->exponent);
+    printf("Exponent: %d\n", x->exponent);
 }
 
 void generate_random_arbfloat(arbfloat_t *x, size_t l) {
