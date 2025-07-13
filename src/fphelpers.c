@@ -42,7 +42,7 @@ void normalise(arbfloat_t *x){
 
 void left_shift(arbfloat_t *x, int n){
     x->exponent -= n; // shift exponent down
-    // CAN BE HERE TO SAVE COPYING -- limb_t mask = ~(((limb_t)1 << n) - 1); // bitmask, starts as all 1s and k 0s at the end
+    limb_t mask = ~(((limb_t)1 << n) - 1); // bitmask, starts as all 1s and k 0s at the end
     // Runs from [0, length-4) to stop lengths divisible by 4 from running the last block SIMD
     int seqiter = (x->length / 4);
     if (x->length % 4 == 0){
@@ -68,15 +68,12 @@ void left_shift(arbfloat_t *x, int n){
 
         // take the first k bits from the next limb (if it exists) and replace
         // the last k bits from the last limb, i.e. for (int i=63-k+1; i<=63; i++){limb4[i] = limb5[i]}
-        limb_t mask = ~(((limb_t)1 << n) - 1); // bitmask, starts as all 1s and k 0s at the end
         x->limbs[i+3] &= mask; // clear the last k bits
         limb_t limb5 = x->limbs[i+4] >> (64-n); // next limb shifted down, going from kklll to 000..kk
         x->limbs[i+3] |= limb5; // new bitmask to set limb4's last k bits via bitwise AND. i.e., 111..0 | 000...k = 111...k
-        
     }
     // process any remaining limbs that are not a multiple of 4
-    limb_t mask = ~(((limb_t)1 << n) - 1);
-    for (int i=seqiter*4; i<x->length; i++){    
+    for (int i=seqiter*4; i<x->length; i++){
         x->limbs[i] <<= n;
         if (i != x->length - 1){ // if k bits need to be shifted, from the next one in
             x->limbs[i] &= mask;
