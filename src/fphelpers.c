@@ -44,7 +44,11 @@ void left_shift(arbfloat_t *x, int n){
     x->exponent -= n; // shift exponent down
     // CAN BE HERE TO SAVE COPYING -- limb_t mask = ~(((limb_t)1 << n) - 1); // bitmask, starts as all 1s and k 0s at the end
     // Runs from [0, length-4) to stop lengths divisible by 4 from running the last block SIMD
-    for (int i=0; i<x->length - 4; i+=4){ // process 4 limbs (256 bits) at a time
+    int seqiter = (x->length / 4);
+    if (x->length % 4 == 0){
+        seqiter--;
+    }
+    for (int i=0; i<seqiter*4; i+=4){ // process 4 limbs (256 bits) at a time
         __m256i curr4 = _mm256_loadu_si256((const __m256i *)(x->limbs + i)); // load the next 256 bits of integer data
         // i.e. // load((x->limbs[i], x->limbs[i+1], x->limbs[i+2], x->limbs[i+3]));
         // do standard shift to swap ks to the front - goes from kl to lk
@@ -72,10 +76,6 @@ void left_shift(arbfloat_t *x, int n){
     }
     // process any remaining limbs that are not a multiple of 4
     limb_t mask = ~(((limb_t)1 << n) - 1);
-    int seqiter = (x->length / 4); // 1
-    if (x->length % 4 == 0){
-        seqiter--;
-    }
     for (int i=seqiter*4; i<x->length; i++){    
         x->limbs[i] <<= n;
         if (i != x->length - 1){ // if k bits need to be shifted, from the next one in
@@ -89,7 +89,7 @@ void left_shift(arbfloat_t *x, int n){
     while (x->length > 0 && x->limbs[x->length - 1] == 0) {
         //free((limb_t *)(x->limbs[x->capacity - 1])); wont work because it's a contiguous block of memory
         x->length--; // logically get rid of it like a stack pointer
-    }*/
+    } */
 }
 
 
