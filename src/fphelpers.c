@@ -54,15 +54,12 @@ void left_shift(arbfloat_t *x, int n){
         // do standard shift to swap ks to the front - goes from kl to lk
         __m256i l_part = _mm256_slli_epi64(curr4, n); // l <-
         __m256i k_part = _mm256_srli_epi64(curr4, (64-n)); // k ->
-        __m256i swapped = _mm256_or_si256(l_part, k_part);
         // permute the 64-bit integers across lanes, i.e. shift them around within the array such that the 0 is at the end (separate copy)
-        __m256i permuted = _mm256_permute4x64_epi64(swapped, 198); // (0b11000110), ipad for logic
+        __m256i permuted = _mm256_permute4x64_epi64(k_part, 201); // (0b11000110), ipad for logic or 0b11001001
         // blend swapped and permuted to create shifted pattern
         // mask/separate the first 64-n bits from each integer in first (permuted) set
         // and combine with the last n bits from each integer in second (permuted and shifted) set
-        __m256i lfinals = _mm256_slli_epi64(swapped, n); // l <- 
-        __m256i kfinals = _mm256_srli_epi64(permuted, 64-n); // k ->
-        __m256i finalshifted = _mm256_or_si256(lfinals, kfinals);
+        __m256i finalshifted = _mm256_or_si256(l_part, permuted);
         // store back the 4 limbs
         _mm256_storeu_si256((__m256i *)(x->limbs + i), finalshifted);
 
