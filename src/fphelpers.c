@@ -55,23 +55,8 @@ void left_shift(arbfloat_t *x, int n){
         // do standard shift to swap ks to the front - goes from kl to lk
         __m256i l_part = _mm256_slli_epi64(curr4, n); // l <-
         __m256i k_part = _mm256_srli_epi64(curr4, (64-n)); // k ->
-        limb_t *temp = malloc(sizeof(limb_t) * 4);
-        printf("k_part pre-permute:\n ");
-        _mm256_storeu_si256((__m256i *)(temp), k_part);
-        for (int i=0; i<4; i++){
-            tobinary(temp[i]);
-            printf("\n");
-        }
-        printf("\n");
         // permute the 64-bit integers across lanes, i.e. shift them around within the array such that the 0 is at the end (separate copy)
         __m256i permuted = _mm256_permute4x64_epi64(k_part, 0x39); // (0b00111001), was 0b10010011 0b11000110 was backwards 
-        printf("k-part post-permute: \n");
-        _mm256_storeu_si256((__m256i *)(temp), permuted);
-        for (int i=0; i<4; i++){
-            tobinary(temp[i]);
-            printf("\n");
-        }
-        printf("\n");
         // blend swapped and permuted to create shifted pattern
         // mask/separate the first 64-n bits from each integer in first (permuted) set
         // and combine with the last n bits from each integer in second (permuted and shifted) set
@@ -128,7 +113,7 @@ void right_shift(arbfloat_t *x, int n, uint8_t *grt){ // for doing (R+T)
         __m256i l_part = _mm256_srli_epi64(curr4, n); // l ->
         __m256i k_part = _mm256_slli_epi64(curr4, (64-n)); // k <-
         __m256i swapped = _mm256_or_si256(l_part, k_part);
-        __m256i permuted = _mm256_permute4x64_epi64(swapped, 108); // (0b01101100), ipad for logic
+        __m256i permuted = _mm256_permute4x64_epi64(swapped, 0x93); // (0b10010011), ipad page33 for logic
         // mask/separate the last 64-n bits from each integer in first (permuted) set
         // and combine with the first n bits from each integer in second (permuted and shifted) set
         __m256i lfinals = _mm256_srli_epi64(swapped, n); // l ->
