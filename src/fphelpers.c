@@ -35,7 +35,6 @@ void normalise(arbfloat_t *x){
         x->exponent -= 64;
     }
     left_shift(x, leadingzeroes);
-    x->exponent -= leadingzeroes;
     return;
     // return
 }
