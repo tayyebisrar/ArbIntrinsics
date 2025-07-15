@@ -114,7 +114,7 @@ void right_shift(arbfloat_t *x, int n, uint8_t *grt){ // for doing (R+T)
     }
 
     // Handle remaining limbs
-    for (int i=(x->length < 4) ? x->length-1 : 3; i >= 0; i--){
+    for (int i=(x->length < 4) ? x->length-1 : 3 + x->length % 4; i >= 0; i--){
         x->limbs[i] >>= n;
         if (i != 0){
             x->limbs[i] &= mask; // clear the first k bits
