@@ -60,7 +60,7 @@ void add_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* z, bool *ov){
     }
 
     bool overflow = false;
-    for (int i=(op1->length >= 4) ? 4 :op1->length; i >= 0; i--){
+    for (int i=(op1->length < 4) ? op1->length-1 : 3 + op1->length % 4; i >= 0; i--){
         limb_t result = op1->limbs[i] + op2->limbs[i] + overflow;
         overflow = false;
         if (result < op1->limbs[i] || result < op2->limbs[i]){
