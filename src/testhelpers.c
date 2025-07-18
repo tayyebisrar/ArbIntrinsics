@@ -3,8 +3,8 @@
 #include <time.h>
 #include <arbintrinsics.h>
 
-#define MAX_EXPONENT 1000
-#define MIN_EXPONENT -1000
+#define MAX_EXPONENT 256
+#define MIN_EXPONENT -256
 
 void display_arbfloat_limbs(arbfloat_t *x, int oneline);
 void tobinary(limb_t n);
