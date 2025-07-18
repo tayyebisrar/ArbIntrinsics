@@ -27,19 +27,9 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res){
     int d = op1->exponent - op2->exponent; // exp(op1) is always >= exp(op2), so d >= 0
     if (d > 0) { // if difference in exps, align op2 by right shifting
         // use a (deep) copy of op2 instead to avoid changing op2, so reassign the op2 pointer to a copy
-        printf("Before shift and reassign op2 to copy:\n");
-        printf("op1:");
-        display_arbfloat_limbs(op1, 1);
-        printf("op2:");
-        display_arbfloat_limbs(op2, 1);
         op2_copy = copy_arbfloat(op2);
         op2 = op2_copy; // now op2 points to the copy
         right_shift(op2, d, &grt);
-        printf("After shift and reassign op2 to copy:\n");
-        printf("op1:");
-        display_arbfloat_limbs(op1, 1);
-        printf("op2:");
-        display_arbfloat_limbs(op2, 1);
     }
 
     // if signs are same, add limbs. If signs different, subtract
@@ -69,19 +59,10 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res){
 void add_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov){
     bool overflow = false, temp = false; // indicates if need to carry something for next add. At start there is no previous carry
     for (int i=op1->length-1; i >= 0; i--){ // for the last 4 or less limbs
-        printf("Adding limbs %d\n", i);
         limb_t result = op1->limbs[i] + op2->limbs[i];
-        printf("op1: %llu\n+\nop2: %llu\n=res: %llu\n", op1->limbs[i], op2->limbs[i], result);
         temp = (result < op1->limbs[i]);
         result += overflow;
         overflow = (temp || result < op1->limbs[i]);
-        if (overflow) {
-            printf("Overflow\n");
-        }
-        else{
-            printf("No Overflow\n");
-        }
-        printf("POST OVERFLOW res:%llu\n\n", result);
         res->limbs[i] = result;
     }
     *ov = overflow;
