@@ -126,3 +126,19 @@ void right_shift(arbfloat_t *x, int n, uint8_t *grt){ // for doing (R+T)
     // first limb may have garbage values at the start so need to clear them
     x->limbs[0] &= mask;
 }
+
+arbfloat_t *copy_arbfloat(const arbfloat_t *src) {
+    arbfloat_t *dest = malloc(sizeof(arbfloat_t));
+    dest->length = src->length;
+    dest->capacity = src->capacity;
+    dest->exponent = src->exponent;
+    dest->sign = src->sign;
+
+    // Allocate memory for the limbs
+    dest->limbs = malloc(dest->capacity * sizeof(limb_t));
+
+    // Copy the limbs
+    memcpy(dest->limbs, src->limbs, dest->length * sizeof(limb_t));
+    
+    return dest;
+}
