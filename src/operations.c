@@ -90,30 +90,3 @@ void add_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov){
 void sub_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov){
 
 }
-
-/*
-
-        __m256i carryinfo = _mm256_cmpgt_epi64(op1curr4, oresult); // If any overflow, the mirror limb in carryinfo will be all 1s
-        simdtemp = carryinfo'
-        oresult = _mm256_add_epi64(oresult, overflow); // op1 + op2 + previous set's overflow (only for 4th limb)
-        __m256i carryinfo = _mm256_or_si256(carryinfo, _mm256_cmpgt_epi64(op1curr4, oresult)); // equivalent to overflow = (temp || result < op1->limbs[i]);
-
-        // right shift carry info to get 1 if overflow, 0 otherwise. 
-        // then left shift + wraparound the limbs so they're above the correct limb for adding
-        carryinfo = _mm256_srli_epi64(carryinfo, 63); // overflow = 1, none = 0
-        __m256i permuted = _mm256_permute4x64_epi64(carryinfo, 0x39);
-
-        __m256i simdtemp = _mm256_extract_epi64(permuted, 0x0); // hold onto the lastlimb for next set of 4
-
-        //carryinfo = _mm256_and_si256(carryinfo, carrymask); // clear the last lane
-        oresult = _mm256_add_epi64(oresult, carryinfo); // add overflows
-        
-        __m256i carryinfo = _mm256_cmpgt_epi64(op1curr4, oresult); // if new sum with overflow, overflows
-
-        //carryinfo = _mm256_and_si256(carryinfo, (111111....64x0s)); // need to blend carryinfo with 0s to remove the LSL overflow
-        
-        // if it WAS overflow, need to remember for the next set 
-
-        // overflow = (_mm256_extract_epi64(carryinfo, 0) != 0); // If next set of limbs needs overflow, last (0th) limb = 1
-        
-        */
