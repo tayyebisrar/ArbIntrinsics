@@ -34,8 +34,8 @@ void display_arbfloat_limbs(arbfloat_t *x, int oneline){
 
 void generate_random_arbfloat(arbfloat_t *x, size_t l) {
     x->length = l;
-    x->capacity = l;
-    x->limbs = (limb_t *)malloc(l * sizeof(limb_t));
+    x->capacity = 2*l;
+    x->limbs = (limb_t *)malloc(x->capacity * sizeof(limb_t));
     x->exponent = rand() % (MAX_EXPONENT - MIN_EXPONENT + 1); // =32767 % 1000 - (-1000) + 1 = 2001;
     x->sign = 0;
 
