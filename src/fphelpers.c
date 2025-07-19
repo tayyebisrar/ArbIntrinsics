@@ -142,3 +142,18 @@ arbfloat_t *copy_arbfloat(const arbfloat_t *src) {
     
     return dest;
 }
+
+void append_limb(arbfloat_t *x, limb_t limb){
+    // Increase length of x's limb array if needed, then append limb_t with value limb
+    if (x->length >= x->capacity) {
+        x->capacity *= 2;
+        limb_t *newlimbs = realloc(x->limbs, x->capacity * sizeof(limb_t));
+        if (newlimbs == NULL) {
+            fprintf(stderr, "Could not allocate memory for new limbs\n");
+            exit(EXIT_FAILURE);
+        }
+        x->limbs = newlimbs;
+    }
+    x->limbs[x->length] = limb;
+    x->length++;
+}
