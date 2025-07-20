@@ -8,4 +8,6 @@ void right_shift(arbfloat_t *x, int n, uint8_t *grt);
 
 arbfloat_t* copy_arbfloat(const arbfloat_t *src);
 void append_limb(arbfloat_t *x, limb_t limb);
+int compare_arbfloat_t(arbfloat_t *x, arbfloat_t *y);
+
 #endif

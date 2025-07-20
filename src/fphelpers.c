@@ -157,3 +157,25 @@ void append_limb(arbfloat_t *x, limb_t limb){
     x->limbs[x->length] = limb;
     x->length++;
 }
+
+int compare_arbfloat_t(arbfloat_t *x, arbfloat_t *y){
+    // returns 1 if x > y, -1 if x < y, 0 if x == y 
+    // numbers MUST be normalised for this to work correctly
+    if (x->exponent != y->exponent){
+        if (x->exponent > y->exponent){ // if x has a bigger exponent it'll be bigger
+            return 1;
+        }
+        if (x->exponent < y->exponent){ // other way for y
+            return -1;
+        }
+    }
+
+    for (int i=0; i < (x->length >= y->length) ? x->length : y->length; i++){
+        limb_t xi = (i < x->length) ? x->limbs[i] : 0;
+        limb_t yi = (i < y->length) ? y->limbs[i] : 0;
+        if (xi > yi) return 1;
+        if (xi < yi) return -1;
+    }
+
+    return 0; // same exponent, same number of digits, same mantissa? same number
+}
