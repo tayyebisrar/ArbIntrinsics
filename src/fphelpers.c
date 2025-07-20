@@ -41,6 +41,9 @@ void normalise(arbfloat_t *x){
 
 
 void left_shift(arbfloat_t *x, int n){
+    if (n==0){
+        return;
+    }
     x->exponent -= n; // shift exponent down
     limb_t mask = ~(((limb_t)1 << n) - 1); // bitmask, starts as all 1s and k 0s at the end
     // Runs from [0, length-4) to stop lengths divisible by 4 from running the last block SIMD
@@ -88,6 +91,9 @@ void left_shift(arbfloat_t *x, int n){
 
 
 void right_shift(arbfloat_t *x, int n, uint8_t *grt){ // for doing (R+T)
+    if (n==0){
+        return;
+    }
     x->exponent += n;
     // limb_t lost_bits is a 64-bit integer, while grt is a pointer to a uint8_t, which do not match in size
     if (grt != NULL) {
