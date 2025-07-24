@@ -18,9 +18,10 @@ typedef struct {
 typedef enum{
     RNDN=0,// Round to nearest (tie to even)
     RNDZ,// Round to zero
+    RNDA,// Round away from zero
     RNDU,// Round up (+inf)
     RNDD // Round down (-inf)
-}roundmode;
+} roundmode;
 
 /*typedef struct {
     arbfloat_t value;
