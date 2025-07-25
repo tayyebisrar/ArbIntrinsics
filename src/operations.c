@@ -12,8 +12,7 @@ void add_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov);
 void sub_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res);
 
 void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, uint8_t* grtp){
-    // TODO: Rounding
-    // TODO: Change normalise to happen after rounding too (?)
+    // Method: Align -> compute grt -> add/subtract -> normalise -> round
     // x and y themselves are unchanged, use copies when shifting
     arbfloat_t *op1 = (x->exponent >= y->exponent) ? x : y; // Useful for easy swapping
     arbfloat_t *op2 = (x->exponent >= y->exponent) ? y : x;
@@ -39,12 +38,11 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, uint8_t* grtp){
             op1_copy = copy_arbfloat(op1);
             op1 = op1_copy;
             right_shift(op2, d, &grt); // using an aligned subtrahend
-            append_limb(op1, 0); // needed to accurately perform subtraction with GRT
-            append_limb(op2, ((limb_t)(grt&0x07)<<61)); // places GRT at the left side of the new limb, i.e. GRT0000....
-            append_limb(res, 0);
+            uint8_t subtracted_grt = (-grt + 1) & 0x07; // 00000111 = 0x07, computes 000 - GRT
             sub_limbwise(op1, op2, res); // larger - smaller
-            
+            append_limb(res, ((limb_t)(subtracted_grt&0x07)<<61)); // places 000-GRT in the last limb of result
             normalise(res); // normalise result
+
             // recompute GRT bits from extra limb
             uint8_t tgrt = 0;
             limb_t extralimb = res->limbs[res->length-1];
@@ -53,8 +51,6 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, uint8_t* grtp){
             tgrt |= (extralimb & ((1ULL << (62)) - 1)) ? 1 : 0;
 
             // remove the extra limbs
-            op1->length--;
-            op2->length--;
             res->length--;
 
             grt_out = tgrt;
@@ -80,8 +76,8 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, uint8_t* grtp){
         }
         bool overflowed;
         add_limbwise(op1, op2, res, &overflowed);
-        uint8_t tgrt = 0;
         if (overflowed){
+            uint8_t tgrt = 0; // will either be 0 or 1, based on ulp
             right_shift(res, 1, &tgrt); // first limb will go bbbbbbbbbb to 0bbbbbbbbbb
             // TGRT bits = old grt bits' last 2 values bitwise ORed and placed in 2nd-to-last position
             // then right shifted once, then bitwise OR'd with tgrt
@@ -100,14 +96,55 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, uint8_t* grtp){
         free(op1_copy);
     }
     if (grtp) *grtp = grt_out;
-
-    // normalise(res) here might change the GRT? 
     return;
 }  
 
 void add_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov){
     bool overflow = false, temp = false; // indicates if need to carry something for next add. At start there is no previous carry
     for (int i=op1->length-1; i >= 0; i--){ // for the last 4 or less limbs
+        limb_t result = op1->limbs[i] + op2->limbs[i];
+        temp = (result < op1->limbs[i]);
+        result += overflow;
+        overflow = (temp || result < op1->limbs[i]);
+        res->limbs[i] = result;
+    }
+    *ov = overflow;
+}
+
+void add_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov){
+    __m256i mask = _mm256_set_epi64x(-1, -1, -1, 0);
+    __m256i next_carry_mask = _mm256_set_epi64x(0, 0, 0, -1);
+    __m256i new_result;
+    __m256i carryover = SIMD_ALL_ZEROES; // starts with no carry
+    for (int i = op1->length - 4; i >= 0; i -= 4) {
+        __m256i a = _mm256_loadu_si256((const __m256i *)(op1->limbs + i));
+        __m256i b = _mm256_loadu_si256((const __m256i *)(op2->limbs + i));
+        __m256i result = _mm256_add_epi64(a, b); // add the 4 limbs
+        __m256i cmp_gt = _mm256_cmpgt_epi64(a, result); // <=> result < a
+        result = _mm256_add_epi64(result, carryover); // add the carry
+        __m256i cmp_gt_with_carry = _mm256_or_epi64(cmp_gt, _mm256_cmpgt_epi64(a, result));
+        cmp_gt_with_carry = _mm256_permute4x64_epi64(cmp_gt_with_carry, 0x39); // moves each limb left by 1, so all limbs (except the first) can be directly added
+        cmp_gt_with_carry = _mm256_srli_epi64(cmp_gt_with_carry, 63); // shifts 0xFFF.. to 0x000..1, so any carry limbs can now be added
+        __m256i maskedcarry = _mm256_and_si256(cmp_gt_with_carry, mask);
+        carryover = _mm256_and_si256(cmp_gt_with_carry, next_carry_mask); // carryover is the carry for the next iteration);
+        while (!_mm256_testz_si256(maskedcarry, maskedcarry)){ // while there is a carry, repeat. this instruction returns 1 if carry is zero, 0 otherwise
+        // Propagate the carries from within the same set of 4 limbs
+            new_result = _mm256_add_epi64(result, maskedcarry); // each limb except limb 0 + either 0 or 1
+            cmp_gt = _mm256_cmpgt_epi64(result, new_result); // if *another* overflow happens, newresult.limb < result.limb
+            result = new_result;
+            cmp_gt = _mm256_permute4x64_epi64(cmp_gt, 0x39); // left shift
+            cmp_gt = _mm256_srli_epi64(cmp_gt, 63); // shift to the right to get 0xFFF.. to 0x000..1
+            maskedcarry = _mm256_and_si256(cmp_gt, mask);
+            carryover = _mm256_or_epi64(carryover, _mm256_and_si256(cmp_gt, next_carry_mask)); // limb0 out of 0-3 for the next iteration
+        }
+        _mm256_storeu_si256((__m256i *)(res->limbs + i), result); // store the result
+    }
+
+    // If carryover is not zero, there is an overall overflow
+    bool overflow = false, temp = false; 
+    overflow = !_mm256_testz_si256(carryover, carryover);
+    // Handle any remaining limbs (less than 4)
+    for (int i=(op1->length % 4) -1; i >= 0; i--){
         limb_t result = op1->limbs[i] + op2->limbs[i];
         temp = (result < op1->limbs[i]);
         result += overflow;
