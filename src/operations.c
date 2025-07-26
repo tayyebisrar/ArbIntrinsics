@@ -164,3 +164,45 @@ void sub_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res){
         res->limbs[i] = result;
     }
 }
+
+void sub_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res){
+    __m256i mask = _mm256_set_epi64x(-1, -1, -1, 0);
+    __m256i next_borrow_mask = _mm256_set_epi64x(0, 0, 0, -1);
+    __m256i new_result;
+    __m256i borrowover = SIMD_ALL_ZEROES; // starts with no borrow
+    for (int i = op1->length - 4; i >= 0; i -= 4) {
+        __m256i a = _mm256_loadu_si256((const __m256i *)(op1->limbs + i));
+        __m256i b = _mm256_loadu_si256((const __m256i *)(op2->limbs + i));
+        __m256i result = _mm256_sub_epi64(a, b); // subtract the 4 limbs
+        __m256i cmp_gt = _mm256_cmpgt_epi64(result, a); // <=> result > a
+        result = _mm256_sub_epi64(result, borrowover); // subtract the borrow
+        __m256i cmp_gt_with_borrow = _mm256_or_epi64(cmp_gt, _mm256_cmpgt_epi64(result, a));
+        cmp_gt_with_borrow = _mm256_permute4x64_epi64(cmp_gt_with_borrow, 0x39); // moves each limb left by 1, so all limbs (except the first) can be directly added
+        cmp_gt_with_borrow = _mm256_srli_epi64(cmp_gt_with_borrow, 63); // shifts 0xFFF.. to 0x000..1, so any borrow limbs can now be added
+        __m256i maskedborrow = _mm256_and_si256(cmp_gt_with_borrow, mask);
+        borrowover = _mm256_and_si256(cmp_gt_with_borrow, next_borrow_mask); // borrowover is the borrow for the next iteration
+        while (!_mm256_testz_si256(maskedborrow, maskedborrow)){ // while there is a borrow, repeat. this instruction returns 1 if borrow is zero, 0 otherwise
+        // Propagate the borrows from within the same set of 4 limbs
+            new_result = _mm256_sub_epi64(result, maskedborrow); // each limb except limb 0 + either 0 or 1
+            cmp_gt = _mm256_cmpgt_epi64(new_result, result); // if *another* overflow happens, newresult.limb > result.limb
+            result = new_result;
+            cmp_gt = _mm256_permute4x64_epi64(cmp_gt, 0x39); // left shift
+            cmp_gt = _mm256_srli_epi64(cmp_gt, 63); // shift to the right to get 0xFFF.. to 0x000..1
+            maskedborrow = _mm256_and_si256(cmp_gt, mask);
+            borrowover = _mm256_or_epi64(borrowover, _mm256_and_si256(cmp_gt, next_borrow_mask)); // limb0 out of 0-3 for the next iteration
+        }
+        _mm256_storeu_si256((__m256i *)(res->limbs + i), result); // store the result
+    }
+
+    // If borrowover is not zero, there is an overall overflow
+    bool borrow = false, temp = false;
+    borrow = !_mm256_testz_si256(borrowover, borrowover);
+    // Handle any remaining limbs (less than 4)
+    for (int i=(op1->length % 4) -1; i >= 0; i--){
+        limb_t result = op1->limbs[i] - op2->limbs[i];
+        temp = (result > op1->limbs[i]);
+        result -= borrow;
+        borrow = (temp || result > op1->limbs[i]);
+        res->limbs[i] = result;
+    }
+}
