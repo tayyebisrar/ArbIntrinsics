@@ -6,6 +6,7 @@
 #include <string.h>
 #include "fphelpers.h"
 #include "testhelpers.h"
+#include "round.h"
 
 #define SIMD_ALL_ZEROES _mm256_setzero_si256()
 
@@ -14,9 +15,10 @@ void sub_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res);
 void add_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov);
 void sub_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res);
 
-void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, uint8_t* grtp){
+void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, uint8_t* grtp, roundmode roundmode){
     // Method: Align -> compute grt -> add/subtract -> normalise -> round
     // x and y themselves are unchanged, use copies when shifting
+    // TODO: Find an unsigned version of _mm256_cmpgt_epi64 to correctly compare limbs. Could use XORs or AVX512
     arbfloat_t *op1 = (x->exponent >= y->exponent) ? x : y; // Useful for easy swapping
     arbfloat_t *op2 = (x->exponent >= y->exponent) ? y : x;
     arbfloat_t *op2_copy, *op1_copy;
@@ -98,7 +100,12 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, uint8_t* grtp){
         free(op1_copy->limbs);
         free(op1_copy);
     }
+
     if (grtp) *grtp = grt_out;
+
+    if (roundmode){
+        round_arbfloat(res, grt_out, roundmode);
+    }
     return;
 }  
 

@@ -6,6 +6,30 @@
 
 #define ULP(x) x->limbs[x->length - 1] & 1
 
+void round_arbfloat(arbfloat_t *x, uint8_t grt, roundmode mode){
+    // Rounds the arbfloat x according to the specified rounding mode
+    switch (mode) {
+        case RNDN:
+            roundtonearest(x, grt);
+            break;
+        case RNDD:
+            rounddown(x, grt);
+            break;
+        case RNDU:
+            roundup(x, grt);
+            break;
+        case RNDZ:
+            roundtozero(x, grt);
+            break;
+        case RNDA:
+            roundawayfromzero(x, grt);
+            break;
+        default:
+            fprintf(stderr, "Unknown rounding mode\n");
+            exit(EXIT_FAILURE);
+    }
+}
+
 void add_rnd(arbfloat_t *x, bool rnd){
     bool overflow = rnd;
     int i=x->length-1;
@@ -23,6 +47,7 @@ void add_rnd(arbfloat_t *x, bool rnd){
     }
     return; // ditch any new GRT bits
 }
+
 void roundup(arbfloat_t *x, uint8_t grt){
     /* ROUND TO POSITIVE INF
     If any of GRT is set:
