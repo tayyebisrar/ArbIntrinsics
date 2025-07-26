@@ -11,7 +11,7 @@ void display_arbfloat_limbs(arbfloat_t *x, int oneline);
 void tobinary(limb_t n);
 limb_t rand64(void);
 void generate_random_arbfloat(arbfloat_t *x, size_t length);
-void print_m256i_binary(__m256i val);
+void print_m256i_binary(__m256i val, int gaps);
 
 void display_arbfloat_limbs(arbfloat_t *x, int oneline){
     if (oneline){
@@ -87,13 +87,18 @@ void display_normalised(arbfloat_t *x){
     printf(" x2^%d\n", x->exponent);
 }
 
-void print_m256i_binary(__m256i val) {
-    for (int i = 0; i < 4; i++) {
-        // Extract the i-th 64-bit value from the __m256i
-        limb_t val_i = _mm256_extract_epi64(val, i);
-        
-        // Print each 64-bit value in binary format
-        tobinary(val_i);
-    }
+void print_m256i_binary(__m256i val, int gaps) {
+    // Need to have immediate values to extract each limb so can't use for loop
+    limb_t val_i = _mm256_extract_epi64(val, 0);
+    tobinary(val_i);
+    if (gaps) printf(" ");
+    val_i = _mm256_extract_epi64(val, 1);
+    tobinary(val_i);
+    if (gaps) printf(" ");
+    val_i = _mm256_extract_epi64(val, 2);
+    tobinary(val_i);
+    if (gaps) printf(" ");
+    val_i = _mm256_extract_epi64(val, 3);
+    tobinary(val_i);
     printf("\n");
 }
