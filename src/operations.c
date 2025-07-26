@@ -10,6 +10,8 @@
 
 void add_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov);
 void sub_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res);
+void add_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov);
+void sub_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res);
 
 void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, uint8_t* grtp){
     // Method: Align -> compute grt -> add/subtract -> normalise -> round
@@ -122,7 +124,7 @@ void add_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov){
         __m256i result = _mm256_add_epi64(a, b); // add the 4 limbs
         __m256i cmp_gt = _mm256_cmpgt_epi64(a, result); // <=> result < a
         result = _mm256_add_epi64(result, carryover); // add the carry
-        __m256i cmp_gt_with_carry = _mm256_or_epi64(cmp_gt, _mm256_cmpgt_epi64(a, result));
+        __m256i cmp_gt_with_carry = _mm256_or_si256(cmp_gt, _mm256_cmpgt_epi64(a, result));
         cmp_gt_with_carry = _mm256_permute4x64_epi64(cmp_gt_with_carry, 0x39); // moves each limb left by 1, so all limbs (except the first) can be directly added
         cmp_gt_with_carry = _mm256_srli_epi64(cmp_gt_with_carry, 63); // shifts 0xFFF.. to 0x000..1, so any carry limbs can now be added
         __m256i maskedcarry = _mm256_and_si256(cmp_gt_with_carry, mask);
@@ -135,7 +137,7 @@ void add_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov){
             cmp_gt = _mm256_permute4x64_epi64(cmp_gt, 0x39); // left shift
             cmp_gt = _mm256_srli_epi64(cmp_gt, 63); // shift to the right to get 0xFFF.. to 0x000..1
             maskedcarry = _mm256_and_si256(cmp_gt, mask);
-            carryover = _mm256_or_epi64(carryover, _mm256_and_si256(cmp_gt, next_carry_mask)); // limb0 out of 0-3 for the next iteration
+            carryover = _mm256_or_si256(carryover, _mm256_and_si256(cmp_gt, next_carry_mask)); // limb0 out of 0-3 for the next iteration
         }
         _mm256_storeu_si256((__m256i *)(res->limbs + i), result); // store the result
     }
@@ -176,7 +178,7 @@ void sub_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res){
         __m256i result = _mm256_sub_epi64(a, b); // subtract the 4 limbs
         __m256i cmp_gt = _mm256_cmpgt_epi64(result, a); // <=> result > a
         result = _mm256_sub_epi64(result, borrowover); // subtract the borrow
-        __m256i cmp_gt_with_borrow = _mm256_or_epi64(cmp_gt, _mm256_cmpgt_epi64(result, a));
+        __m256i cmp_gt_with_borrow = _mm256_or_si256(cmp_gt, _mm256_cmpgt_epi64(result, a));
         cmp_gt_with_borrow = _mm256_permute4x64_epi64(cmp_gt_with_borrow, 0x39); // moves each limb left by 1, so all limbs (except the first) can be directly added
         cmp_gt_with_borrow = _mm256_srli_epi64(cmp_gt_with_borrow, 63); // shifts 0xFFF.. to 0x000..1, so any borrow limbs can now be added
         __m256i maskedborrow = _mm256_and_si256(cmp_gt_with_borrow, mask);
@@ -189,7 +191,7 @@ void sub_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res){
             cmp_gt = _mm256_permute4x64_epi64(cmp_gt, 0x39); // left shift
             cmp_gt = _mm256_srli_epi64(cmp_gt, 63); // shift to the right to get 0xFFF.. to 0x000..1
             maskedborrow = _mm256_and_si256(cmp_gt, mask);
-            borrowover = _mm256_or_epi64(borrowover, _mm256_and_si256(cmp_gt, next_borrow_mask)); // limb0 out of 0-3 for the next iteration
+            borrowover = _mm256_or_si256(borrowover, _mm256_and_si256(cmp_gt, next_borrow_mask)); // limb0 out of 0-3 for the next iteration
         }
         _mm256_storeu_si256((__m256i *)(res->limbs + i), result); // store the result
     }
