@@ -5,6 +5,7 @@
 #include <math.h>
 #include <string.h>
 #include "fphelpers.h"
+#include "testhelpers.h"
 
 #define SIMD_ALL_ZEROES _mm256_setzero_si256()
 
@@ -114,8 +115,8 @@ void add_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov){
 }
 
 void add_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov){
-    __m256i mask = _mm256_set_epi64x(-1, -1, -1, 0);
-    __m256i next_carry_mask = _mm256_set_epi64x(0, 0, 0, -1);
+    __m256i mask = _mm256_set_epi64x(0, -1, -1, -1);
+    __m256i next_carry_mask = _mm256_set_epi64x(-1, 0, 0, 0);
     __m256i new_result;
     __m256i carryover = SIMD_ALL_ZEROES; // starts with no carry
     for (int i = op1->length - 4; i >= 0; i -= 4) {
@@ -130,7 +131,7 @@ void add_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov){
         __m256i maskedcarry = _mm256_and_si256(cmp_gt_with_carry, mask);
         carryover = _mm256_and_si256(cmp_gt_with_carry, next_carry_mask); // carryover is the carry for the next iteration);
         while (!_mm256_testz_si256(maskedcarry, maskedcarry)){ // while there is a carry, repeat. this instruction returns 1 if carry is zero, 0 otherwise
-        // Propagate the carries from within the same set of 4 limbs
+            // Propagate the carries from within the same set of 4 limbs
             new_result = _mm256_add_epi64(result, maskedcarry); // each limb except limb 0 + either 0 or 1
             cmp_gt = _mm256_cmpgt_epi64(result, new_result); // if *another* overflow happens, newresult.limb < result.limb
             result = new_result;
@@ -168,8 +169,8 @@ void sub_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res){
 }
 
 void sub_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res){
-    __m256i mask = _mm256_set_epi64x(-1, -1, -1, 0);
-    __m256i next_borrow_mask = _mm256_set_epi64x(0, 0, 0, -1);
+    __m256i mask = _mm256_set_epi64x(0, -1, -1, -1);
+    __m256i next_borrow_mask = _mm256_set_epi64x(-1, 0, 0, 0);
     __m256i new_result;
     __m256i borrowover = SIMD_ALL_ZEROES; // starts with no borrow
     for (int i = op1->length - 4; i >= 0; i -= 4) {

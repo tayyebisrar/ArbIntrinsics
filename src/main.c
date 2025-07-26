@@ -6,7 +6,6 @@
 #include <operations.h>
 
 int main(void){
-    printf("Hello?");
     srand(42);
     arbfloat_t x, y, res;
     uint8_t grt;
