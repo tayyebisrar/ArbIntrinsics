@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <immintrin.h>
 #include <arbintrinsics.h>
 
 #define MAX_EXPONENT 32
@@ -10,7 +11,8 @@ void display_arbfloat_limbs(arbfloat_t *x, int oneline);
 void tobinary(limb_t n);
 limb_t rand64(void);
 void generate_random_arbfloat(arbfloat_t *x, size_t length);
- 
+void print_m256i_binary(__m256i val);
+
 void display_arbfloat_limbs(arbfloat_t *x, int oneline){
     if (oneline){
         printf("Number: ");
@@ -83,4 +85,15 @@ void display_normalised(arbfloat_t *x){
         printf("...");
     }
     printf(" x2^%d\n", x->exponent);
+}
+
+void print_m256i_binary(__m256i val) {
+    for (int i = 0; i < 4; i++) {
+        // Extract the i-th 64-bit value from the __m256i
+        limb_t val_i = _mm256_extract_epi64(val, i);
+        
+        // Print each 64-bit value in binary format
+        tobinary(val_i);
+    }
+    printf("\n");
 }
