@@ -102,3 +102,15 @@ void print_m256i_binary(__m256i val, int gaps) {
     tobinary(val_i);
     printf("\n");
 }
+
+void set_arbfloat(arbfloat_t *x, limb_t *limbs, size_t l, int exponent, bool sign) {
+    x->length = l;
+    x->capacity = 2*l;
+    x->limbs = (limb_t *)malloc(x->capacity * sizeof(limb_t));
+    x->exponent = exponent;
+    x->sign = sign;
+
+    for (int i=0; i<l; i++){
+        x->limbs[i] = limbs[i];
+    }
+}
