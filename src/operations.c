@@ -38,9 +38,11 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, roundmode roundmode)
     if (x->sign ^ y->sign){
         uint8_t grt = 0;
         if (op1->exponent != op2->exponent){ // since exponents are different, and op1's is larger, it can always be assumed here op1 > op2
-            op2_copy = copy_arbfloat(op2);
+            op2_copy = malloc(sizeof(arbfloat_t));
+            copy_arbfloat(op2_copy, op2);
             op2 = op2_copy; // now op2 points to the copy
-            op1_copy = copy_arbfloat(op1);
+            op1_copy = malloc(sizeof(arbfloat_t));
+            copy_arbfloat(op1_copy, op1);
             op1 = op1_copy;
             right_shift(op2, d, &grt); // using an aligned subtrahend
             uint8_t subtracted_grt = (-grt + 1) & 0x07; // 00000111 = 0x07, computes 000 - GRT
@@ -75,7 +77,8 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, roundmode roundmode)
         uint8_t grt = 0;
         if (d > 0) { // if difference in exps, align op2 by right shifting
             // use a (deep) copy of op2 instead to avoid changing op2, so reassign the op2 pointer to a copy
-            op2_copy = copy_arbfloat(op2);
+            op2_copy = malloc(sizeof(arbfloat_t));
+            copy_arbfloat(op2_copy, op2);
             op2 = op2_copy; // now op2 points to the copy
             right_shift(op2, d, &grt);
         }
@@ -93,11 +96,15 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, roundmode roundmode)
         grt_out = grt;
     }
     if (op2_copy) {
-        free(op2_copy->limbs);
+        if (op2_copy->limbs) {
+            free(op2_copy->limbs); // free the limbs of the copy
+        }
         free(op2_copy);
     }
     if (op1_copy) {
-        free(op1_copy->limbs);
+        if (op1_copy->limbs) {
+            free(op1_copy->limbs);
+        }
         free(op1_copy);
     }
 

@@ -133,12 +133,12 @@ void right_shift(arbfloat_t *x, int n, uint8_t *grt){ // for doing (R+T)
     x->limbs[0] &= mask;
 }
 
-arbfloat_t *copy_arbfloat(const arbfloat_t *src) {
-    arbfloat_t *dest = malloc(sizeof(arbfloat_t));
+void copy_arbfloat(arbfloat_t* dest, const arbfloat_t *src) {
     dest->length = src->length;
     dest->capacity = src->capacity;
     dest->exponent = src->exponent;
     dest->sign = src->sign;
+    dest->type = src->type;
 
     // Allocate memory for the limbs
     dest->limbs = malloc(dest->capacity * sizeof(limb_t));
@@ -165,6 +165,7 @@ void append_limb(arbfloat_t *x, limb_t limb){
 }
 
 int compare_arbfloat_t(arbfloat_t *x, arbfloat_t *y){
+    // x and y are of type normal, comparing mantissas only
     // returns 1 if x > y, -1 if x < y, 0 if x == y 
     // numbers MUST be normalised for this to work correctly
     if (x->exponent != y->exponent){
