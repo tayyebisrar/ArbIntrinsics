@@ -13,6 +13,8 @@ typedef struct {
     size_t capacity;     // how many limbs are allocated
     int exponent;        // unbiased exponent
     bool sign;           // 0 for +, 1 for -
+    arbfloat_type_t type; // type of the arbfloat (e.g. normal, subnormal, zero, infinity, NaN)
+    // int user_prec_bits; // user-defined precision bits (not a multiple of 64)
 } arbfloat_t;
 
 typedef enum{
@@ -23,11 +25,19 @@ typedef enum{
     RNDD // Round down (-inf)
 } roundmode;
 
-/*typedef struct {
-    arbfloat_t value;
-    bool sticky;
-    bool round;
-    bool guard;          // GRT bits
-} extended_result_t;*/
+typedef enum{
+    ARBINTR_TYPE_NORMAL = 0,
+    ARBINTR_TYPE_ZERO,
+    ARBINTR_TYPE_INF,
+    ARBINTR_TYPE_NAN
+} arbfloat_type_t;
+
+#define ARBINTR_EXP_MAX 1024
+#define ARBINTR_EXP_MIN -1024
+
+#define ARBINTR_IS_NORMAL(x) ((x)->type == ARBINTR_TYPE_NORMAL)
+#define ARBINTR_IS_INF(x) ((x)->type == ARBINTR_TYPE_INF)
+#define ARBINTR_IS_NAN(x) ((x)->type == ARBINTR_TYPE_NAN)
+#define ARBINTR_IS_ZERO(x) ((x)->type == ARBINTR_TYPE_ZERO)
 
 #endif
