@@ -12,6 +12,6 @@ void display_normalised(arbfloat_t *x);
 void tobinary(limb_t n);
 limb_t rand64(void);
 void print_m256i_binary(__m256i val, int gaps);
-void set_arbfloat(arbfloat_t *x, limb_t *limbs, size_t l, int exponent, bool sign);
+void new_arbfloat(arbfloat_t *x, limb_t *limbs, size_t l, int exponent, bool sign, arbfloat_type_t type);
 
 #endif

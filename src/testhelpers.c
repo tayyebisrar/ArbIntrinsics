@@ -4,9 +4,6 @@
 #include <immintrin.h>
 #include <arbintrinsics.h>
 
-#define MAX_EXPONENT 32
-#define MIN_EXPONENT -32
-
 void display_arbfloat_limbs(arbfloat_t *x, int oneline);
 void tobinary(limb_t n);
 limb_t rand64(void);
@@ -38,9 +35,10 @@ void generate_random_arbfloat(arbfloat_t *x, size_t l) {
     x->length = l;
     x->capacity = 2*l;
     x->limbs = (limb_t *)malloc(x->capacity * sizeof(limb_t));
-    x->exponent = rand() % (MAX_EXPONENT - MIN_EXPONENT + 1); // =32767 % 1000 - (-1000) + 1 = 2001;
+    x->exponent = rand() % (ARBINTR_EXP_MAX - ARBINTR_EXP_MIN + 1); // =32767 % 1000 - (-1000) + 1 = 2001;
     x->sign = 0;
-
+    x->type = ARBINTR_TYPE_NORMAL;
+    
     for (int i=0; i<l; i++){
         x->limbs[i] = rand64();
     }
@@ -103,12 +101,13 @@ void print_m256i_binary(__m256i val, int gaps) {
     printf("\n");
 }
 
-void set_arbfloat(arbfloat_t *x, limb_t *limbs, size_t l, int exponent, bool sign) {
+void new_arbfloat(arbfloat_t *x, limb_t *limbs, size_t l, int exponent, bool sign, arbfloat_type_t type) {
     x->length = l;
     x->capacity = 2*l;
     x->limbs = (limb_t *)malloc(x->capacity * sizeof(limb_t));
     x->exponent = exponent;
     x->sign = sign;
+    x->type = type;
 
     for (int i=0; i<l; i++){
         x->limbs[i] = limbs[i];
