@@ -20,7 +20,7 @@ int main(void){
     printf("y\n");
     display_arbfloat_limbs(&y, 1);
     printf("x + y = \n");
-    addnaive(&x, &y, &res, &grt);
+    addnaive(&x, &y, &res, &grt, RNDZ);
     display_arbfloat_limbs(&res, 1);
     printf("GRT: %d\n", grt);
 }

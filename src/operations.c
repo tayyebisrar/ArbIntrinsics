@@ -104,7 +104,11 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, uint8_t* grtp, round
     if (grtp) *grtp = grt_out;
 
     if (roundmode){
-        round_arbfloat(res, grt_out, roundmode);
+        printf("Before rounding: ");
+        display_arbfloat_limbs(res, 1);
+        round_arbfloat(&res, grt_out, roundmode);
+        printf("After rounding: ");
+        display_arbfloat_limbs(res, 1);
     }
     return;
 }  
