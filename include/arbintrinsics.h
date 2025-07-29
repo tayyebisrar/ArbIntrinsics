@@ -40,4 +40,6 @@ typedef enum{
 #define ARBINTR_IS_NAN(x) ((x)->type == ARBINTR_TYPE_NAN)
 #define ARBINTR_IS_ZERO(x) ((x)->type == ARBINTR_TYPE_ZERO)
 
+#define ARBINTR_EXP_IS_IN_RANGE(x) \
+    ((x)->exponent >= ARBINTR_EXP_MIN && (x)->exponent <= ARBINTR_EXP_MAX)
 #endif

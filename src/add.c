@@ -54,6 +54,7 @@ void arbintr_add(arbfloat_t *a, arbfloat_t *b, arbfloat_t* res, roundmode roundm
     else{
         addnaive(a, b, res, roundmode); // both normal, call addnaive
         res->type = ARBINTR_TYPE_NORMAL; // set type to normal
+        check_overflow(res, roundmode);
         return;
     }
 }

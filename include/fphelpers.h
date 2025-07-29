@@ -10,4 +10,6 @@ void copy_arbfloat(arbfloat_t* dest, const arbfloat_t *src);
 void append_limb(arbfloat_t *x, limb_t limb);
 int compare_arbfloat_t(arbfloat_t *x, arbfloat_t *y);
 
+void check_overflow(arbfloat_t *x, roundmode roundmode);
+
 #endif

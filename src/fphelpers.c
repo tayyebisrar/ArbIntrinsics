@@ -186,3 +186,27 @@ int compare_arbfloat_t(arbfloat_t *x, arbfloat_t *y){
 
     return 0; // same exponent, same number of digits, same mantissa? same number
 }
+
+void check_overflow(arbfloat_t *x, roundmode roundmode){
+    // Check if the non-inf and non-NaN number is too big to fit in the range of the arbfloat_t
+    if (ARBINTR_EXP_IS_IN_RANGE(x)) {
+        x->type = ARBINTR_TYPE_NORMAL;
+        return;
+    }
+    else {
+        if (x->exponent > ARBINTR_EXP_MAX) {
+            // Overflow, set to infinity
+            x->type = ARBINTR_TYPE_INF;
+            x->exponent = ARBINTR_EXP_MAX; // set exponent to max
+            return;
+        } else if (x->exponent < ARBINTR_EXP_MIN) {
+            // Underflow, set to zero
+            x->type = ARBINTR_TYPE_ZERO;
+            x->exponent = ARBINTR_EXP_MIN;
+            // Set limbs to zero
+            if (x->limbs && x->capacity > 0) memset(x->limbs, 0, x->capacity * sizeof(limb_t));
+            x->length = 0; // set length to 0
+            return;
+        }
+    }
+}
