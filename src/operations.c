@@ -83,6 +83,7 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, roundmode roundmode)
                 sub_limbwise(op1, op2, res); 
             }
             grt_out = grt; // no grt, so will be 0
+            normalise(res); // can safely normalise
         }
     }
     else {
