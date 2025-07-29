@@ -15,7 +15,7 @@ void sub_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res);
 void add_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov);
 void sub_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res);
 
-static const __m256i SIGNBIT_MASK = (__m256i){
+static __m256i SIGNBIT_MASK = (__m256i){
     0x8000000000000000ULL,
     0x8000000000000000ULL,
     0x8000000000000000ULL,
@@ -123,7 +123,7 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, roundmode roundmode)
     if (roundmode){
         printf("Before rounding: ");
         display_arbfloat_limbs(res, 1);
-        round_arbfloat(&res, grt_out, roundmode);
+        round_arbfloat(res, grt_out, roundmode);
         printf("After rounding: ");
         display_arbfloat_limbs(res, 1);
     }

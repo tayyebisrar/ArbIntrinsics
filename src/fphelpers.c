@@ -146,7 +146,7 @@ void copy_arbfloat(arbfloat_t* dest, const arbfloat_t *src) {
     // Copy the limbs
     memcpy(dest->limbs, src->limbs, dest->length * sizeof(limb_t));
     
-    return dest;
+    return;
 }
 
 void append_limb(arbfloat_t *x, limb_t limb){
