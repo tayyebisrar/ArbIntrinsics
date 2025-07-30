@@ -42,4 +42,7 @@ typedef enum{
 
 #define ARBINTR_EXP_IS_IN_RANGE(x) \
     ((x)->exponent >= ARBINTR_EXP_MIN && (x)->exponent <= ARBINTR_EXP_MAX)
+
+#define ARBINTR_IS_NORMALISED(x) ((x)->limbs[0] >> 63 & 1) // MSB is 1
+
 #endif

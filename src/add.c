@@ -52,9 +52,18 @@ void arbintr_add(arbfloat_t *a, arbfloat_t *b, arbfloat_t* res, roundmode roundm
         return;
     }
     else{
+        // Make sure both are normalised
+        if (!ARBINTR_IS_NORMALISED(a) || !ARBINTR_IS_NORMALISED(b)) {
+            normalise(a);
+            check_overflow(a);
+            normalise(b);
+            check_overflow(b);
+            arbintr_add(a, b, res, roundmode); // call again with normalised operands
+            return;
+        }
         addnaive(a, b, res, roundmode); // both normal, call addnaive
         res->type = ARBINTR_TYPE_NORMAL; // set type to normal
-        check_overflow(res, roundmode);
+        check_overflow(res); // update to special value if overflow/underflow
         return;
     }
 }

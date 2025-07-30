@@ -13,7 +13,7 @@ void normalise(arbfloat_t *x);
 
 void normalise(arbfloat_t *x){
     // left only
-    // detect first 1 (if any) - LOD detector
+    // detect first 1 (if any) - LOD detector)
     int NElimb = -1; // index of first non-zero limb
     for (size_t i = 0; i < x->length; i++){
         if (x->limbs[i] != 0){
@@ -187,7 +187,7 @@ int compare_arbfloat_t(arbfloat_t *x, arbfloat_t *y){
     return 0; // same exponent, same number of digits, same mantissa? same number
 }
 
-void check_overflow(arbfloat_t *x, roundmode roundmode){
+void check_overflow(arbfloat_t *x){
     // Check if the non-inf and non-NaN number is too big to fit in the range of the arbfloat_t
     if (ARBINTR_EXP_IS_IN_RANGE(x)) {
         x->type = ARBINTR_TYPE_NORMAL;
