@@ -8,7 +8,7 @@
 void arbintr_add(arbfloat_t *a, arbfloat_t *b, arbfloat_t* res, roundmode roundmode){
     // Addition itself is handled by addnaive
     // This function checks special cases, calling addnaive if both normal
-    
+    // TODO: Sort limb de-allocation/handling for special cases like zero
     // Handle special cases - start with non-normal cases
     if (ARBINTR_IS_NAN(a) || ARBINTR_IS_NAN(b)) {
         // NaN + anything = NaN
