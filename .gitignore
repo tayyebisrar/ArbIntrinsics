@@ -3,3 +3,4 @@
 /*.o
 /*.s
 /.vscode
+/src/main.c
