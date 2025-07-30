@@ -33,7 +33,7 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, roundmode roundmode)
     // TODO: Find an unsigned version of _mm256_cmpgt_epi64 to correctly compare limbs. Could use XORs or AVX512
     arbfloat_t *op1 = (x->exponent >= y->exponent) ? x : y; // Useful for easy swapping
     arbfloat_t *op2 = (x->exponent >= y->exponent) ? y : x;
-    arbfloat_t *op2_copy, *op1_copy;
+    arbfloat_t *op2_copy = NULL, *op1_copy = NULL;
 
     res->exponent = op1->exponent; // set the exponent of the result
     res->sign = op1->sign;
