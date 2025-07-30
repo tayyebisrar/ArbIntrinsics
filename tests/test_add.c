@@ -10,6 +10,8 @@
 
 static int arbfloat_equal(arbfloat_t *a, arbfloat_t *b) {
     if (a->length != b->length || a->exponent != b->exponent || a->sign != b->sign || a->type != b->type) {
+        printf("Lengths: %zu vs %zu, Exponents: %d vs %d, Signs: %d vs %d, Types: %d vs %d\n",
+               a->length, b->length, a->exponent, b->exponent, a->sign, b->sign, a->type, b->type);
         return 0; // Not equal
     }
     for (size_t i = 0; i < a->length; i++) {
@@ -19,8 +21,11 @@ static int arbfloat_equal(arbfloat_t *a, arbfloat_t *b) {
     }
     return 1; // Equal
 }
-static void testregular1(){
+static void testaddnaive(){
+    // Operands are not normalised
+    // Tests for correct addition only
     arbfloat_t x, y, res, expected;
+    res.type = ARBINTR_TYPE_NORMAL; // set type to normal
     limb_t limbs_x[] = {
         0x1234567890abcdef,
         0xfedcba0987654321
@@ -33,15 +38,15 @@ static void testregular1(){
     };// 00010001000100010001000100010001000100010001000100010001000100010010001000100010001000100010001000100010001000100010001000100010
     new_arbfloat(&y, limbs_y, 2, 1, 0, ARBINTR_TYPE_NORMAL); // y, limbs, length, exponent, sign, normal
 
-    arbintr_add(&x, &y, &res, RNDN);
-    // 10001101000101011001111000100110100001101111001101111100000001001000001111111011011100001010111010100110000111011001010100001100
+    
     limb_t expected_limbs[] = {
-        0x83456789a1bcdf01,
+        0x23456789a1bcdf01,
         0x20fedc2ba9876543
-    };
-    new_arbfloat(&expected, expected_limbs, 2, -1, 0, ARBINTR_TYPE_NORMAL);
-    assert((arbfloat_equal(&res, &expected) == 1) && "Regular addition 1 failed");
-    printf("Test regular addition 1 passed.\n");
+    };// 0010001101000101011001111000100110100001101111001101111100000001001000001111111011011100001010111010100110000111011001010100001100
+    new_arbfloat(&expected, expected_limbs, 2, 1, 0, ARBINTR_TYPE_NORMAL);
+    addnaive(&x, &y, &res, RNDN);
+    assert((arbfloat_equal(&res, &expected) == 1) && "Addnaive failed");
+    printf("Test addnaive passed.\n");
 }
 
 static void testregular2(){
@@ -88,11 +93,10 @@ static void testzero(){
     assert((arbfloat_equal(&res, &expected) == 1) && "Zero addition failed");
     printf("Test zero addition passed.\n");
 }
-/*
+
 int main(void){
-    testregular1();
-    testregular2();
-    testzero();
+    testaddnaive();
+    //testregular2();
+    //testzero();
     return 0;
 }
-*/
