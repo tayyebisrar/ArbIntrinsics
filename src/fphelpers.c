@@ -203,9 +203,6 @@ void check_overflow(arbfloat_t *x){
             // Underflow, set to zero
             x->type = ARBINTR_TYPE_ZERO;
             x->exponent = ARBINTR_EXP_MIN;
-            // Set limbs to zero
-            if (x->limbs && x->capacity > 0) memset(x->limbs, 0, x->capacity * sizeof(limb_t));
-            x->length = 0; // set length to 0
             return;
         }
     }

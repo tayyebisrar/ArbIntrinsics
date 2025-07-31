@@ -30,7 +30,7 @@ static inline __m256i _mm256_cmpgt_epu64(__m256i a, __m256i b) {
 void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, roundmode roundmode){
     // Method: Align -> compute grt -> add/subtract -> normalise -> round
     // Assumes x and y are normalised, and are both normal.
-    // TODO: Find an unsigned version of _mm256_cmpgt_epi64 to correctly compare limbs. Could use XORs or AVX512
+    
     arbfloat_t *op1 = (x->exponent >= y->exponent) ? x : y; // Useful for easy swapping
     arbfloat_t *op2 = (x->exponent >= y->exponent) ? y : x;
     arbfloat_t *op2_copy = NULL, *op1_copy = NULL;
