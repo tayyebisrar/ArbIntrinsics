@@ -16,9 +16,6 @@ static int arbfloat_equal(arbfloat_t *a, arbfloat_t *b) {
     }
     for (size_t i = 0; i < a->length; i++) {
         if (a->limbs[i] != b->limbs[i]) {
-            tobinary(a->limbs[i]);
-            printf(" vs ");
-            tobinary(b->limbs[i]);
             return 0; // Not equal
         }
     }
