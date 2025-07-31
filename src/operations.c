@@ -75,15 +75,20 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, roundmode roundmode)
             grt_out = tgrt;
         }
         else{ // they are of equal exponent - all is good, and no extra limbs are needed since they're the same exponent (no grt)
-            if (compare_arbfloat_t(op1, op2) == -1){  // if op1 is actually < op2 (based on mantissas)
+            int gt = compare_arbfloat_t(op1, op2);
+            if (gt == -1){  // if op1 is actually < op2 (based on mantissas)
                 sub_limbwise(op2, op1, res);
                 res->sign = op2->sign; // the sign should be changed to the larger in this case (op2)
+                normalise(res); // can safely normalise
             }
-            else{
-                sub_limbwise(op1, op2, res); 
+            else if (gt == 1){
+                sub_limbwise(op1, op2, res);
+                normalise(res); // can safely normalise
+            }
+            else{ // op1 is exactly equal to op2, gt == 0, res == 0
+                res->type = ARBINTR_TYPE_ZERO;
             }
             grt_out = grt; // no grt, so will be 0
-            normalise(res); // can safely normalise
         }
     }
     else {

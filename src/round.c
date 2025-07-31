@@ -92,6 +92,7 @@ void roundawayfromzero(arbfloat_t *x, uint8_t grt){
 
 void round_arbfloat(arbfloat_t *x, uint8_t grt, roundmode mode){
     // Rounds the arbfloat x according to the specified rounding mode
+    if (!ARBINTR_IS_NORMAL(x)) return;
     switch (mode) {
         case RNDN:
             roundtonearest(x, grt);
