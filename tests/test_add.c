@@ -16,6 +16,10 @@ static int arbfloat_equal(arbfloat_t *a, arbfloat_t *b) {
     }
     for (size_t i = 0; i < a->length; i++) {
         if (a->limbs[i] != b->limbs[i]) {
+            tobinary(a->limbs[i]);
+            printf("\nvs\n");
+            tobinary(b->limbs[i]);
+            printf("\n");
             return 0; // Not equal
         }
     }
@@ -175,6 +179,73 @@ static void testround(){
     printf("Test rounded addition passed.\n");
 }
 
+static void test_subtract(){
+    // x - y
+    arbfloat_t x, y, res, expected;
+    limb_t limbs_x[] = {
+        0x3ed3756845cd0190,
+        0x3dc11ddc1f50324f,
+        0x349f74fe7e9906e9,
+        0x52c45ab909201bbb
+    }; // srand(42) yields this
+    new_arbfloat(&x, limbs_x, 4, 2, 0, ARBINTR_TYPE_NORMAL); // x, limbs, length, exponent, sign, normal
+
+    limb_t limbs_y[] = {
+        0x686a22cb4cdc380f,
+        0x1b8023e6640773f6,
+        0x0e830d7517cb18c0,
+        0x442570d80e0d75e6
+    }; 
+    new_arbfloat(&y, limbs_y, 4, 0, 1, ARBINTR_TYPE_NORMAL); // y, limbs, length, exponent, sign, normal
+
+    arbintr_add(&x, &y, &res, RNDN);
+    
+    limb_t expected_limbs[] = {
+        0x92e3b2d5ca57ce31,
+        0xdb84538a19395546,
+        0xc3fac684e29902e5,
+        0x06ebfa0c1672f906
+    }; // 0x92e3b2d5ca57ce31db84538a19395546c3fac684e29902e506ebfa0c1672f906
+    new_arbfloat(&expected, expected_limbs, 4, 0, 0, ARBINTR_TYPE_NORMAL);
+    assert((arbfloat_equal(&res, &expected) == 1) && "Regular subtraction failed");
+    printf("Test regular subtraction passed.\n");
+}
+
+static void test_subround(){
+    // x - y with a higher exp. difference to see rounding
+    arbfloat_t x, y, res, expected;
+    limb_t limbs_x[] = {
+        0x3ed3756845cd0190,
+        0x3dc11ddc1f50324f,
+        0x349f74fe7e9906e9,
+        0x52c45ab909201bbb
+    }; // srand(42) yields this
+    new_arbfloat(&x, limbs_x, 4, 8, 0, ARBINTR_TYPE_NORMAL); // x, limbs, length, exponent, sign, normal
+
+    limb_t limbs_y[] = {
+        0x686a22cb4cdc380f,
+        0x1b8023e6640773f6,
+        0x0e830d7517cb1c0,
+        0x442570d80e0d75e6
+    }; 
+    new_arbfloat(&y, limbs_y, 4, 0, 1, ARBINTR_TYPE_NORMAL); // y, limbs, length, exponent, sign, normal
+
+    arbintr_add(&x, &y, &res, RNDA);
+    
+    limb_t expected_limbs[] = {
+        0xf9ac2d15ea009560,
+        0xba9676e0e3b0ab6c,
+        0xfa43c7c42604ef42,
+        0x4a00d520c4483915
+    }; // 0xf9ac2d15ea009560ba9676e0e3b0ab6cfa43c7c42604ef424a00d520c4483915
+    new_arbfloat(&expected, expected_limbs, 4, 6, 0, ARBINTR_TYPE_NORMAL);
+    assert((arbfloat_equal(&res, &expected) == 1) && "Rounded subtraction failed");
+    printf("Test rounded subtraction passed.\n");
+}
+
+
+
+
 int main(void){
     test_addnaive();
     test_regular();
@@ -182,5 +253,7 @@ int main(void){
     testzero();
     testzeroadds();
     testinf();
+    test_subtract();
+    test_subround();
     return 0;
 }

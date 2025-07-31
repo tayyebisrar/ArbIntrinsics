@@ -11,9 +11,9 @@
 #define SIMD_ALL_ZEROES _mm256_setzero_si256()
 
 void add_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov);
-void sub_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res);
+void sub_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool borrowin);
 void add_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov);
-void sub_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res);
+void sub_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool borrowin);
 
 static __m256i SIGNBIT_MASK = (__m256i){
     0x8000000000000000ULL,
@@ -57,8 +57,8 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, roundmode roundmode)
             copy_arbfloat(op1_copy, op1);
             op1 = op1_copy;
             right_shift(op2, d, &grt); // using an aligned subtrahend
-            uint8_t subtracted_grt = (-grt + 1) & 0x07; // 00000111 = 0x07, computes 000 - GRT
-            sub_limbwise(op1, op2, res); // larger - smaller
+            uint8_t subtracted_grt = (8 - grt); // 00000111 = 0x07, computes (1)000 - GRT
+            sub_limbwise(op1, op2, res, ((grt)?true:false)); // larger - smaller
             append_limb(res, ((limb_t)(subtracted_grt&0x07)<<61)); // places 000-GRT in the last limb of result
             normalise(res); // normalise result
 
@@ -77,12 +77,12 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, roundmode roundmode)
         else{ // they are of equal exponent - all is good, and no extra limbs are needed since they're the same exponent (no grt)
             int gt = compare_arbfloat_t(op1, op2);
             if (gt == -1){  // if op1 is actually < op2 (based on mantissas)
-                sub_limbwise(op2, op1, res);
+                sub_limbwise(op2, op1, res, false); // false because no borrow was taken for grt
                 res->sign = op2->sign; // the sign should be changed to the larger in this case (op2)
                 normalise(res); // can safely normalise
             }
             else if (gt == 1){
-                sub_limbwise(op1, op2, res);
+                sub_limbwise(op1, op2, res, false);
                 normalise(res); // can safely normalise
             }
             else{ // op1 is exactly equal to op2, gt == 0, res == 0
@@ -127,7 +127,7 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, roundmode roundmode)
     }
 
     if (grt_out) round_arbfloat(res, grt_out, roundmode); // Round if necessary
-    
+
     return;
 }  
 
@@ -186,8 +186,8 @@ void add_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov){
     *ov = overflow;
 }
 
-void sub_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res){
-    bool borrow = false, temp = false;
+void sub_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool borrowin){
+    bool borrow = borrowin, temp = false;
     for (int i=op1->length-1; i>=0; i--){
         limb_t result = op1->limbs[i] - op2->limbs[i];
         temp = (result > op1->limbs[i]);
@@ -197,11 +197,11 @@ void sub_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res){
     }
 }
 
-void sub_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res){
+void sub_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool borrowin){
     __m256i mask = _mm256_set_epi64x(0, -1, -1, -1);
     __m256i next_borrow_mask = _mm256_set_epi64x(-1, 0, 0, 0);
     __m256i new_result;
-    __m256i borrowover = SIMD_ALL_ZEROES; // starts with no borrow
+    __m256i borrowover = (borrowin) ? _mm256_set_epi64x(1, 0, 0, 0) : SIMD_ALL_ZEROES;
     for (int i = op1->length - 4; i >= 0; i -= 4) {
         __m256i a = _mm256_loadu_si256((const __m256i *)(op1->limbs + i));
         __m256i b = _mm256_loadu_si256((const __m256i *)(op2->limbs + i));
