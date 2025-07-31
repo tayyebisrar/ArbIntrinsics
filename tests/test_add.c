@@ -16,6 +16,9 @@ static int arbfloat_equal(arbfloat_t *a, arbfloat_t *b) {
     }
     for (size_t i = 0; i < a->length; i++) {
         if (a->limbs[i] != b->limbs[i]) {
+            tobinary(a->limbs[i]);
+            printf(" vs ");
+            tobinary(b->limbs[i]);
             return 0; // Not equal
         }
     }
@@ -76,8 +79,8 @@ static void test_regular(){
         0xc79b6dde1946f269
     }; // 0xb1dbfc3632081f2809424dab70a41e99708070b789179a32c79b6dde1946f269
     new_arbfloat(&expected, expected_limbs, 4, 1, 0, ARBINTR_TYPE_NORMAL);
-    assert((arbfloat_equal(&res, &expected) == 1) && "Regular addition 2 failed");
-    printf("Test regular addition 2 passed.\n");
+    assert((arbfloat_equal(&res, &expected) == 1) && "Regular addition failed");
+    printf("Test regular addition passed.\n");
 }
 
 static void testzero(){
@@ -90,13 +93,97 @@ static void testzero(){
 
     arbintr_add(&x, &y, &res, RNDN);
     new_arbfloat(&expected, limbs_x, 1, 0, 0, ARBINTR_TYPE_ZERO); // expected result is also zero
-    assert((res.type == ARBINTR_TYPE_ZERO) && "Zero addition failed");
-    printf("Test zero addition passed.\n");
+    assert((res.type == ARBINTR_TYPE_ZERO) && "Zero + zero addition failed");
+    printf("Zero + zero addition passed.\n");
+}
+
+static void testzeroadds(){
+    arbfloat_t x, y, res, expected;
+    limb_t limbs_x[] = {0x0}; // 0
+    new_arbfloat(&x, limbs_x, 1, 0, 0, ARBINTR_TYPE_ZERO); // x, limbs, length, exponent, sign, zero
+
+    limb_t limbs_y[] = {0x1234567890ABCDEF}; // 1 limb
+    new_arbfloat(&y, limbs_y, 1, 0, 0, ARBINTR_TYPE_NORMAL); // y, limbs, length, exponent, sign, normal
+
+    limb_t expected_limbs[] = {0x1234567890ABCDEF};
+    new_arbfloat(&expected, expected_limbs, 1, 0, 0, ARBINTR_TYPE_NORMAL); // expected result
+    
+    arbintr_add(&x, &y, &res, RNDN);
+
+    bool first_test = (arbfloat_equal(&res, &expected) == 1);
+    
+    arbintr_add(&y, &x, &res, RNDN);
+
+    bool second_test = (arbfloat_equal(&res, &expected) == 1);
+
+    assert((first_test) && "Zero + y addition failed");
+    printf("Zero + y addition passed.\n");
+    assert((second_test) && "x + zero addition failed");
+    printf("x + zero addition passed.\n");
+}
+
+static void testinf(){
+    arbfloat_t x, y, res, expected;
+    limb_t limbs_x[] = {0x0}; // 0
+    new_arbfloat(&x, limbs_x, 1, 0, 0, ARBINTR_TYPE_INF); // x, limbs, length, exponent, sign, infinity
+
+    limb_t limbs_y[] = {0x0}; // 0
+    new_arbfloat(&y, limbs_y, 1, 0, 0, ARBINTR_TYPE_NORMAL); // y, limbs, length, exponent, sign, normal
+
+    arbintr_add(&x, &y, &res, RNDN);
+
+    bool first_test = (res.type == ARBINTR_TYPE_INF);
+    
+    x.sign = 1; // x = -inf
+
+    arbintr_add(&res, &x, &res, RNDN); // Inf - Inf = NaN
+
+    bool second_test = (res.type == ARBINTR_TYPE_NAN);
+
+    assert((first_test) && "Normal + Inf addition failed");
+    printf("Normal + Inf addition passed.\n");
+    assert((second_test) && "Inf-Inf (NaN) addition failed");
+    printf("Inf-Inf (NaN) addition passed.\n");
+}
+
+static void testround(){
+    // Same values as test_regular but with increase exponent difference for rounding
+    arbfloat_t x, y, res, expected;
+    limb_t limbs_x[] = {
+        0x3ed3756845cd0190,
+        0x3dc11ddc1f50324f,
+        0x349f74fe7e9906e9,
+        0x52c45ab909201bbb
+    }; // srand(42) yields this
+    new_arbfloat(&x, limbs_x, 4, 8, 0, ARBINTR_TYPE_NORMAL); // x, limbs, length, exponent, sign, normal
+
+    limb_t limbs_y[] = {
+        0x686a22cb4cdc380f,
+        0x1b8023e6640773f6,
+        0x0e830d7517cb18c0,
+        0x442570d80e0d75e6
+    }; 
+    new_arbfloat(&y, limbs_y, 4, 0, 0, ARBINTR_TYPE_NORMAL); // y, limbs, length, exponent, sign, normal
+
+    arbintr_add(&x, &y, &res, RNDN);
+    
+    limb_t expected_limbs[] = {
+        0xfcef7e2c44677721,
+        0x3372780016d0e70c,
+        0xaab7e02fcec34808,
+        0x4c2200a784b8a4c4
+    }; // 0xfcef7e2c446777213372780016d0e70caab7e02fcec348084c2200a784b8a4c4
+    new_arbfloat(&expected, expected_limbs, 4, 6, 0, ARBINTR_TYPE_NORMAL);
+    assert((arbfloat_equal(&res, &expected) == 1) && "Rounded addition failed");
+    printf("Test rounded addition passed.\n");
 }
 
 int main(void){
     test_addnaive();
     test_regular();
+    testround();
     testzero();
+    testzeroadds();
+    testinf();
     return 0;
 }
