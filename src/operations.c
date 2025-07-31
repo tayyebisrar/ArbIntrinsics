@@ -126,13 +126,8 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, roundmode roundmode)
         free(op1_copy);
     }
 
-    if (roundmode){
-        printf("Before rounding: ");
-        display_arbfloat_limbs(res, 1);
-        round_arbfloat(res, grt_out, roundmode);
-        printf("After rounding: ");
-        display_arbfloat_limbs(res, 1);
-    }
+    if (grt_out) round_arbfloat(res, grt_out, roundmode); // Round if necessary
+    
     return;
 }  
 
