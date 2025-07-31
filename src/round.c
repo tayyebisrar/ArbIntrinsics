@@ -66,7 +66,7 @@ void roundtonearest(arbfloat_t *x, uint8_t grt){
     needs to become L=0. Put together,
     rnd = G(R + T + L)*/
 
-    bool rnd = (((grt << 1) && ULP(x)) > 8); // GRT becomes GRTL, so GRT > 0b1000 (8) <=> G(R+T+L)
+    bool rnd = (((grt << 1) | (uint8_t)ULP(x)) > 8); // GRT becomes GRTL, so GRT > 0b1000 (8) <=> G(R+T+L)
 
     if (rnd){
         add_rnd(x, 1);
