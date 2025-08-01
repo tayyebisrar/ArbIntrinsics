@@ -6,6 +6,8 @@
 #include <string.h>
 #include <testhelpers.h>
 
+// TODO: Make left and right shift work for n > 64
+
 void left_shift(arbfloat_t *x, int n);
 void right_shift(arbfloat_t *x, int n, uint8_t *grt);
 void normalise(arbfloat_t *x);
