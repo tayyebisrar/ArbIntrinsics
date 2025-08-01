@@ -219,15 +219,15 @@ static void test_subround(){
         0x3dc11ddc1f50324f,
         0x349f74fe7e9906e9,
         0x52c45ab909201bbb
-    }; // srand(42) yields this
+    }; // 0x3ed3756845cd01903dc11ddc1f50324f349f74fe7e9906e952c45ab909201bbb
     new_arbfloat(&x, limbs_x, 4, 8, 0, ARBINTR_TYPE_NORMAL); // x, limbs, length, exponent, sign, normal
 
     limb_t limbs_y[] = {
         0x686a22cb4cdc380f,
         0x1b8023e6640773f6,
-        0x0e830d7517cb1c0,
+        0x0e830d7517cb18c0,
         0x442570d80e0d75e6
-    }; 
+    }; // 0x686a22cb4cdc380f1b8023e6640773f60e830d7517cb18c0442570d80e0d75e6
     new_arbfloat(&y, limbs_y, 4, 0, 1, ARBINTR_TYPE_NORMAL); // y, limbs, length, exponent, sign, normal
 
     arbintr_add(&x, &y, &res, RNDA);
