@@ -23,9 +23,7 @@ void normalise(arbfloat_t *x){
     }
     if (NElimb == -1) {
         // All zero
-        x->length = 0;
-        x->exponent = 0;
-        x->sign = 0;
+        x->type = ARBINTR_TYPE_ZERO;
         return;
     }
     int leadingzeroes = __builtin_clzll(x->limbs[NElimb]);
