@@ -207,3 +207,24 @@ void check_overflow(arbfloat_t *x){
         }
     }
 }
+
+void lowerlimbsgt(arbfloat_t *x, uint8_t *gt){
+    // check 'first' limb (p+1 - p+64 of 2p bits)
+    const int halflength = x->length / 2;
+    // set G bit based on the p+1th bit
+    *gt |= ((uint8_t)(x->limbs[halflength] >> 63) << 1); // 000000G0
+    // check for any bit (except G) being 1, onward
+    if ((x->limbs[halflength] << 1) != 0){ // check first limb separately, avoiding G
+        (*gt) |= 0x1; // 000000G1
+        return;
+    }
+    // check the rest, skip the one checked
+    for (int i = halflength+1; i < x->length; i++){
+        if (x->limbs[halflength] != 0){
+            (*gt) |= 0x1; // 000000G1
+            return;
+        }
+    }
+    return; // if this is reached, gt++ never occured, so T=0. 
+    // answer is 000000G0, where the G bit is either 0 or 1
+}

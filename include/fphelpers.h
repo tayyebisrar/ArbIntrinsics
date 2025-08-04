@@ -12,4 +12,6 @@ int compare_arbfloat_t(arbfloat_t *x, arbfloat_t *y);
 
 void check_overflow(arbfloat_t *x);
 
+void lowerlimbsgt(arbfloat_t *x, uint8_t *gt);
+
 #endif
