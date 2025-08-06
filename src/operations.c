@@ -30,7 +30,7 @@ static inline __m256i _mm256_cmpgt_epu64(__m256i a, __m256i b) {
 void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, roundmode roundmode){
     // Method: Align -> compute grt -> add/subtract -> normalise -> round
     // Assumes x and y are normalised, and are both normal.
-    
+    //__m512i g = _mm512_set_epi64(0, 0, 0, 0, 0, 0, 0, 0);
     arbfloat_t *op1 = (x->exponent >= y->exponent) ? x : y; // Useful for easy swapping
     arbfloat_t *op2 = (x->exponent >= y->exponent) ? y : x;
     arbfloat_t *op2_copy = NULL, *op1_copy = NULL;
@@ -238,3 +238,70 @@ void sub_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool borrowin){
         res->limbs[i] = result;
     }
 }
+
+static inline void mul_2x64_128(limb_t limb1, limb_t limb2, limb_t *rh, limb_t *rl){
+    limb_t res128 = (__uint128_t)(limb1 * limb2);
+    *rl = (limb_t)res128;
+    *rh = (limb_t)(res128 >> 64);
+}
+
+/*
+void temp_mul_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res, bool *ov){
+    // Method: Naive, schoolbook multiply
+    // TODO: change res to CALLOC
+    // THINK: what about a temporary res which is just added to the current res with (addnaive)
+    bool overflow = false, temp = false;
+    limb_t carry = 0;
+    for (int i=op1->length-1; i>=0; i--){
+        for (int j=op2->length-1; j >= 0; j--){
+            int idx = i + j;
+            // get the high and low parts of the multiplication
+            limb_t hi, lo;
+            mul_2x64_128(op1->limbs[i], op2->limbs[j], &hi, &lo);
+            // Add low part to previous 
+            limb_t limb_res = res->limbs[idx] + lo;
+            temp = (limb_res < lo);
+            res->limbs[idx] = limb_res; // place new lo value
+
+            if (idx - 1 >= 0){ // propagate the hi carry
+                limb_t hi_res = res->limbs[idx - 1] + hi;
+
+            }
+            else{
+                if (carry) *ov = true; // is this possible? (n bits x n bits <= 2n bits)
+            }
+        }
+    }
+}
+
+/*
+limb_t result = op1->limbs[i] + op2->limbs[i];
+        temp = (result < op1->limbs[i]);
+        result += overflow;
+        overflow = (temp || result < op1->limbs[i]);
+        res->limbs[i] = result;
+        */
+
+/*
+void temp_mul_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res, bool *ov){
+    // Method: Naive, schoolbook multiply
+    bool overflow = false, temp = false;
+    arbfloat_t temp_res;
+    copy_arbfloat(&temp_res, res); // duplicate 0-set result-sized struct
+    limb_t carry = 0;
+    for (int i=op1->length-1; i>0; i--){
+        for (int j=op2->length-1; j > 0; j--){
+            int idx = i + j + 1;
+            // get the high and low parts of the multiplication
+            limb_t hi, lo;
+            mul_2x64_128(op1->limbs[i], op2->limbs[j], &hi, &lo);
+            limb_t r = temp_res.limbs[idx] + lo;
+            temp = (r < lo);
+            temp_res.limbs[idx - 1] = (temp) ? hi + 1 : hi;
+            temp_res.limbs[idx] = r;
+        }
+        addnaive(res, &temp_res, res, RNDZ);
+        memset(&temp_res, 0, sizeof(limb_t)); // clear temp for next
+    }
+
+    */
