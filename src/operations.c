@@ -239,6 +239,33 @@ void sub_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool borrowin){
     }
 }
 
+void multnaive(arbfloat_t *x, arbfloat_t *y, arbfloat_t *res, roundmode roundmode){
+    // Add exponents -> Multiply limbs -> normalise -> round
+    // x and y are the same length, just like with addition/subtraction
+    // x and y are guaranteed to be normalised, result will be [1, 4)
+    res->exponent = x->exponent + y->exponent; // set the exponent of the result
+    res->sign = x->sign ^ y->sign;
+    res->length = 2*(x->length); // Start off with 2p bits of precision
+    res->capacity = 2*(x->length);
+    res->limbs = malloc(res->capacity * sizeof(limb_t));
+    uint8_t grt_out = 0;
+
+    bool overflowed;
+    multlimbwise(x, y, res, &overflowed); // TODO - stores 2p bits, we want the high p bits
+    // Compute GT (Guard, sticky) of lower p bits
+    uint8_t gt;
+    lowerlimbsgt(res, gt);
+    res->length /= 2; // now ignore the lower p bits (might move into above function)
+    if (overflowed){
+        uint8_t tgt; // temp g, same as with add, either yields 000 or 100
+        right_shift(res, 1, tgt); // right_shift adjusts exponent accordingly
+        gt = (gt >> 1) | (gt & 1) | (tgt >> 1); // update GT to newG(oldG+oldT)
+        res->limbs[0] += (1ULL << 63); // since we had overflow, first limb, 0bbbbbbbbbb to 1bbbbbbbbbb
+    } // this is the 'normalise'
+
+    round_arbfloat(res, gt, roundmode);
+}
+
 static inline void mul_2x64_128(limb_t limb1, limb_t limb2, limb_t *rh, limb_t *rl){
     limb_t res128 = (__uint128_t)(limb1 * limb2);
     *rl = (limb_t)res128;
@@ -305,30 +332,3 @@ void temp_mul_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res, bool *
     }
 
     */
-   
-void multnaive(arbfloat_t *x, arbfloat_t *y, arbfloat_t *res, roundmode roundmode){
-    // Add exponents -> Multiply limbs -> normalise -> round
-    // x and y are the same length, just like with addition/subtraction
-    // x and y are guaranteed to be normalised, result will be [1, 4)
-    res->exponent = x->exponent + y->exponent; // set the exponent of the result
-    res->sign = x->sign ^ y->sign;
-    res->length = 2*(x->length); // Start off with 2p bits of precision
-    res->capacity = 2*(x->length);
-    res->limbs = malloc(res->capacity * sizeof(limb_t));
-    uint8_t grt_out = 0;
-
-    bool overflowed;
-    multlimbwise(x, y, res, &overflowed); // TODO - stores 2p bits, we want the high p bits
-    // Compute GT (Guard, sticky) of lower p bits
-    uint8_t gt;
-    lowerlimbsgt(res, gt);
-    res->length /= 2; // now ignore the lower p bits (might move into above function)
-    if (overflowed){
-        uint8_t tgt; // temp g, same as with add, either yields 000 or 100
-        right_shift(res, 1, tgt); // right_shift adjusts exponent accordingly
-        gt = (gt >> 1) | (gt & 1) | (tgt >> 1); // update GT to newG(oldG+oldT)
-        res->limbs[0] += (1ULL << 63); // since we had overflow, first limb, 0bbbbbbbbbb to 1bbbbbbbbbb
-    } // this is the 'normalise'
-
-    round_arbfloat(res, gt, roundmode);
-}
