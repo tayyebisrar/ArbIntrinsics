@@ -109,7 +109,9 @@ void new_arbfloat(arbfloat_t *x, limb_t *limbs, size_t l, int exponent, bool sig
     x->sign = sign;
     x->type = type;
 
-    for (int i=0; i<l; i++){
-        x->limbs[i] = limbs[i];
+    if (limbs){
+        for (int i=0; i<l; i++){
+            x->limbs[i] = limbs[i];
+        }
     }
 }

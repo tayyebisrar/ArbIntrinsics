@@ -133,9 +133,9 @@ void right_shift(arbfloat_t *x, int n, uint8_t *grt){ // for doing (R+T)
     x->limbs[0] &= mask;
 }
 
-void copy_arbfloat(arbfloat_t* dest, const arbfloat_t *src) {
-    dest->length = src->length;
-    dest->capacity = src->capacity;
+void copy_arbfloat(arbfloat_t* dest, const arbfloat_t *src, int limbs) {
+    dest->length = (limbs) ? limbs : src->length;
+    dest->capacity = (limbs) ? limbs : src->capacity;
     dest->exponent = src->exponent;
     dest->sign = src->sign;
     dest->type = src->type;

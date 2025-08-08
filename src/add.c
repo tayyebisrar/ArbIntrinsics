@@ -42,13 +42,13 @@ void arbintr_add(arbfloat_t *a, arbfloat_t *b, arbfloat_t* res, roundmode roundm
         }
         else {
             // 0 + b = b
-            copy_arbfloat(res, b); // res = b
+            copy_arbfloat(res, b, NULL); // res = b
             return;
         }
     }
     else if (ARBINTR_IS_ZERO(b)){
         // a + 0 = a
-        copy_arbfloat(res, a);
+        copy_arbfloat(res, a, NULL);
         return;
     }
     else{

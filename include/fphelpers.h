@@ -6,7 +6,7 @@ void normalise(arbfloat_t *x);
 void left_shift(arbfloat_t *x, int n);
 void right_shift(arbfloat_t *x, int n, uint8_t *grt);
 
-void copy_arbfloat(arbfloat_t* dest, const arbfloat_t *src);
+void copy_arbfloat(arbfloat_t* dest, const arbfloat_t *src, int limbs);
 void append_limb(arbfloat_t *x, limb_t limb);
 int compare_arbfloat_t(arbfloat_t *x, arbfloat_t *y);
 

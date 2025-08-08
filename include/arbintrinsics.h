@@ -45,4 +45,6 @@ typedef enum{
 
 #define ARBINTR_IS_NORMALISED(x) ((x)->limbs[0] >> 63 & 1) // MSB is 1
 
+#define ARBINTR_LENGTH(x) ((x)->length)
+
 #endif
