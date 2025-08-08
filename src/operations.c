@@ -12,6 +12,7 @@
 
 void add_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov);
 void sub_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool borrowin);
+void multlimbwise(arbfloat_t *op1, arbfloat_t* op2, arbfloat_t* res);
 void add_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov);
 void sub_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool borrowin);
 
@@ -51,10 +52,10 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, roundmode roundmode)
         uint8_t grt = 0;
         if (op1->exponent != op2->exponent){ // since exponents are different, and op1's is larger, it can always be assumed here op1 > op2
             op2_copy = malloc(sizeof(arbfloat_t));
-            copy_arbfloat(op2_copy, op2);
+            copy_arbfloat(op2_copy, op2, NULL);
             op2 = op2_copy; // now op2 points to the copy
             op1_copy = malloc(sizeof(arbfloat_t));
-            copy_arbfloat(op1_copy, op1);
+            copy_arbfloat(op1_copy, op1, NULL);
             op1 = op1_copy;
             right_shift(op2, d, &grt); // using an aligned subtrahend
             uint8_t subtracted_grt = (8 - grt); // 00000111 = 0x07, computes (1)000 - GRT
@@ -96,7 +97,7 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, roundmode roundmode)
         if (d > 0) { // if difference in exps, align op2 by right shifting
             // use a (deep) copy of op2 instead to avoid changing op2, so reassign the op2 pointer to a copy
             op2_copy = malloc(sizeof(arbfloat_t));
-            copy_arbfloat(op2_copy, op2);
+            copy_arbfloat(op2_copy, op2, NULL);
             op2 = op2_copy; // now op2 points to the copy
             right_shift(op2, d, &grt);
         }
@@ -247,12 +248,11 @@ void multnaive(arbfloat_t *x, arbfloat_t *y, arbfloat_t *res, roundmode roundmod
     res->sign = x->sign ^ y->sign;
     res->length = 2*(x->length); // Start off with 2p bits of precision
     res->capacity = 2*(x->length);
-    res->limbs = malloc(res->capacity * sizeof(limb_t));
+    res->limbs = calloc(res->capacity, sizeof(limb_t));
     uint8_t grt_out = 0;
 
     bool overflowed;
-    multlimbwise(x, y, res, &overflowed); // TODO - stores 2p bits, we want the high p bits
-    // Compute GT (Guard, sticky) of lower p bits
+    multlimbwise(x, y, res); // TODO - stores 2p bits, we want the high p bits
     uint8_t gt;
     lowerlimbsgt(res, gt);
     res->length /= 2; // now ignore the lower p bits (might move into above function)
@@ -266,69 +266,41 @@ void multnaive(arbfloat_t *x, arbfloat_t *y, arbfloat_t *res, roundmode roundmod
     round_arbfloat(res, gt, roundmode);
 }
 
-static inline void mul_2x64_128(limb_t limb1, limb_t limb2, limb_t *rh, limb_t *rl){
-    limb_t res128 = (__uint128_t)(limb1 * limb2);
-    *rl = (limb_t)res128;
-    *rh = (limb_t)(res128 >> 64);
-}
 
-/*
-void temp_mul_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res, bool *ov){
+void multlimbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res){
     // Method: Naive, schoolbook multiply
-    // TODO: change res to CALLOC
-    // THINK: what about a temporary res which is just added to the current res with (addnaive)
-    bool overflow = false, temp = false;
-    limb_t carry = 0;
+    limb_t carry = 0, sum = 0;
     for (int i=op1->length-1; i>=0; i--){
         for (int j=op2->length-1; j >= 0; j--){
-            int idx = i + j;
+            int idx = i + j + 1;
             // get the high and low parts of the multiplication
-            limb_t hi, lo;
-            mul_2x64_128(op1->limbs[i], op2->limbs[j], &hi, &lo);
-            // Add low part to previous 
-            limb_t limb_res = res->limbs[idx] + lo;
-            temp = (limb_res < lo);
-            res->limbs[idx] = limb_res; // place new lo value
-
-            if (idx - 1 >= 0){ // propagate the hi carry
-                limb_t hi_res = res->limbs[idx - 1] + hi;
-
-            }
-            else{
-                if (carry) *ov = true; // is this possible? (n bits x n bits <= 2n bits)
+            __uint128_t res128 = ((__uint128_t)op1->limbs[i] * (__uint128_t)op2->limbs[j]); // 81
+            sum = (limb_t)res128 + res->limbs[idx]; // low part
+            carry = (limb_t)(res128 >> 64) + (sum < res->limbs[idx]); // hi + (0 or 1)
+            // propagate the carry until it dies out
+            int k = idx - 1;
+            while (carry && k >= 0){
+                __uint128_t temp = (__uint128_t)res->limbs[k] + carry;
+                res->limbs[k] = (limb_t)temp;
+                carry = temp >> 64;
             }
         }
     }
 }
 
-/*
-limb_t result = op1->limbs[i] + op2->limbs[i];
-        temp = (result < op1->limbs[i]);
-        result += overflow;
-        overflow = (temp || result < op1->limbs[i]);
-        res->limbs[i] = result;
-        */
+static void copy_arbfloat_with_offset(arbfloat_t* dest, const arbfloat_t *src, int offset, int limbs) {
+    dest->length = (limbs) ? limbs : src->length;
+    dest->capacity = (limbs) ? limbs : src->capacity;
+    dest->exponent = src->exponent;
+    dest->sign = src->sign;
+    dest->type = src->type;
 
-/*
-void temp_mul_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res, bool *ov){
-    // Method: Naive, schoolbook multiply
-    bool overflow = false, temp = false;
-    arbfloat_t temp_res;
-    copy_arbfloat(&temp_res, res); // duplicate 0-set result-sized struct
-    limb_t carry = 0;
-    for (int i=op1->length-1; i>0; i--){
-        for (int j=op2->length-1; j > 0; j--){
-            int idx = i + j + 1;
-            // get the high and low parts of the multiplication
-            limb_t hi, lo;
-            mul_2x64_128(op1->limbs[i], op2->limbs[j], &hi, &lo);
-            limb_t r = temp_res.limbs[idx] + lo;
-            temp = (r < lo);
-            temp_res.limbs[idx - 1] = (temp) ? hi + 1 : hi;
-            temp_res.limbs[idx] = r;
-        }
-        addnaive(res, &temp_res, res, RNDZ);
-        memset(&temp_res, 0, sizeof(limb_t)); // clear temp for next
-    }
+    // Allocate memory for the limbs
+    dest->limbs = malloc(dest->capacity * sizeof(limb_t));
 
-    */
+    // Copy the limbs
+    memcpy(dest->limbs, src->limbs + offset, dest->length * sizeof(limb_t));
+    
+    return;
+}
+
