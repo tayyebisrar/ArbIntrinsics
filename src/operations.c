@@ -9,6 +9,7 @@
 #include "round.h"
 
 #define SIMD_ALL_ZEROES _mm256_setzero_si256()
+#define KARATSUBA_THRESHOLD 8
 
 void add_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov);
 void sub_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool borrowin);
@@ -290,7 +291,7 @@ void multlimbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res){
 
 static void copy_arbfloat_with_offset(arbfloat_t* dest, const arbfloat_t *src, int offset, int limbs) {
     dest->length = (limbs) ? limbs : src->length;
-    dest->capacity = (limbs) ? limbs : src->capacity;
+    dest->capacity = (limbs) ? limbs * 2 : src->capacity;
     dest->exponent = src->exponent;
     dest->sign = src->sign;
     dest->type = src->type;
@@ -304,3 +305,105 @@ static void copy_arbfloat_with_offset(arbfloat_t* dest, const arbfloat_t *src, i
     return;
 }
 
+static void init_mult_limbs(arbfloat_t *dest, int l){
+    dest->length = l;
+    dest->capacity = l * 2;
+    // Allocate memory for the limbs
+    dest->limbs = malloc(dest->capacity * sizeof(limb_t));
+}
+
+static void add_limbwise_with_offset(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, int offset){
+    bool overflow = false, temp = false; // indicates if need to carry something for next add. At start there is no previous carry
+    for (int i=op1->length-1; i >= 0; i--){ // for the last 4 or less limbs
+        limb_t result = op1->limbs[i] + op2->limbs[i];
+        temp = (result < op1->limbs[i]);
+        result += overflow;
+        overflow = (temp || result < op1->limbs[i]);
+        res->limbs[i-offset] = result;
+    }
+}
+
+static void add_limbwise_dp(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov){
+    bool overflow = false, temp = false; // indicates if need to carry something for next add. At start there is no previous carry
+    for (int i=op1->length-1; i >= 0; i--){ // for the last 4 or less limbs
+        limb_t op2limb = (i >= op2->length) ? 0 : op2->limbs[i];
+        limb_t result = op1->limbs[i] + op2limb;
+        temp = (result < op1->limbs[i]);
+        result += overflow;
+        overflow = (temp || result < op1->limbs[i]);
+        res->limbs[i] = result;
+    }
+    *ov = overflow;
+}
+
+void multkaratsuba(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res){
+    // xy = 2^2m(z1) + 2^m(z2 - z1 - z0) + z0
+    // x = (2^m)x1 + x0, y = (2^m)y1 + y0
+    
+    if (ARBINTR_LENGTH(x) <= KARATSUBA_THRESHOLD){
+        multlimbwise(x, y, res);
+        return;
+    }
+    // x and y are the same length, so can use length(x) unconditionally
+    int m = ARBINTR_LENGTH(x) / 2; 
+
+    arbfloat_t x1, x0, y1, y0;
+    copy_arbfloat_with_offset(&x1, x, 0, m);
+    copy_arbfloat_with_offset(&x0, x, m, ARBINTR_LENGTH(x) - m);
+    copy_arbfloat_with_offset(&y1, y, 0, m);
+    copy_arbfloat_with_offset(&y0, y, m, ARBINTR_LENGTH(y) - m);
+
+    /*if (ARBINTR_LENGTH(x) % 2 == 1){ // if length was odd, they won't be split evenly, so fix for addition
+        append_limb(&x1, 0); // since m is floor(length/2), x1 and y1 will have 1 fewer limb, e.g. m = 2 when len = 5
+        append_limb(&y1, 0);
+    } can remove this part since i made add_limbwise_dp (different precision) */
+
+    arbfloat_t z0, z1, z2, x0x1, y0y1; // can leave type, exponent, sign unused
+    init_mult_limbs(&z0, (x0.length + y0.length)); // x0 * y0 needs len(x0) + len(y0) size
+    init_mult_limbs(&z1, (x1.length + y1.length)); // same for x1 * y1
+    
+    init_mult_limbs(&x0x1, (x0.length + 1)); // + 1 limb for overflow
+    init_mult_limbs(&y0y1, (y0.length + 1)); // + 1 limb for overflow
+    add_limbwise_dp(&x0, &x1, &x0x1, NULL);
+    add_limbwise_dp(&y0, &y1, &y0y1, NULL);
+
+    init_mult_limbs(&z2, (x0x1.length + y0y1.length)); // length cannot exceed length of both combined
+    
+    multkaratsuba(&x0, &y0, &z0); // z0 = x0 * y0
+    multkaratsuba(&x1, &y1, &z1); // z1 = x1 * y1
+    multkaratsuba(&x0x1, &y0y1, &z2); // z2 = (x0 + x1)(y0 + y1)
+
+    // xy = 2^2m(z1) + 2^m(z2-z1-z0) + z0
+    arbfloat_t z2z1z0;
+    init_mult_limbs(&z2z1z0, ());
+
+
+    // res += (z1 << 2m)
+    add_limbwise_with_offset(&z1, res, res, 2*m);
+
+    // res += ((z2 - z1 - z0) << m)
+    add_limbwise_with_offset(&z2z1z0, res, res, m);
+
+    // res += z0
+    add_limbwise_with_offset(&z0, res, res, 0);
+    
+}
+
+/*
+static void append_zero_limbs(arbfloat_t *x, int n){
+    bool c = false;
+    while (x->length + n > x->capacity) {
+        c = true;
+        x->capacity *= 2;   
+    }
+    if (c) {
+        limb_t *newlimbs = realloc(x->limbs, x->capacity * sizeof(limb_t));
+        if (newlimbs == NULL) {
+            fprintf(stderr, "Could not allocate memory for new limbs\n");
+            exit(EXIT_FAILURE);
+        }
+        x->limbs = newlimbs;
+    }
+    x->length += n;
+}
+*/
