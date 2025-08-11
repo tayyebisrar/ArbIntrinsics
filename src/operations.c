@@ -351,7 +351,7 @@ static int max_len(arbfloat_t *x, arbfloat_t *y){
     return y->length;
 }
 
-void sub_limbwise_dp_with_offset(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, int offset){
+static void sub_limbwise_dp_with_offset(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, int offset){
     bool borrow = false, temp = false;
     for (int i=op1->length-1-offset; i>=0; i--){
         limb_t op2limb = (i+offset < 0) ? 0 : op2->limbs[i+offset];
@@ -363,16 +363,19 @@ void sub_limbwise_dp_with_offset(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* r
     }
 }
 
-static void add_limbwise_dp_with_offset(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, int offset){
-    bool overflow = false, temp = false; // indicates if need to carry something for next add. At start there is no previous carry
-    for (int i=op1->length-1-offset; i >= 0; i--){ // for the last 4 or less limbs
+static void add_limbwise_dp_with_offset(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, int offset, bool *ov){
+    bool overflow = false, temp = false;
+    for (int i=op1->length-1-offset; i>=0; i--){
+        limb_t op2limb = (i+offset < 0) ? 0 : op2->limbs[i+offset];
         limb_t result = op1->limbs[i] + op2->limbs[i];
         temp = (result < op1->limbs[i]);
         result += overflow;
         overflow = (temp || result < op1->limbs[i]);
         res->limbs[i] = result;
     }
+    *ov = overflow;
 }
+
 
 void multkaratsuba(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res){
     // xy = 2^2m(z1) + 2^m(z2 - z1 - z0) + z0
@@ -420,15 +423,11 @@ void multkaratsuba(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res){
     int cmp = cmp_limbs(&z2, &z1z0);
     init_mult_limbs(&z2z1z0, max_len(&z2, &z1z0));
     
-    bool z = false;
     if (cmp == 1){ // if z2 > z1+z0, sum will have + 2^m(z2 - z1 - z0)
         sub_limbwise_dp(&z2, &z1z0, &z2z1z0);
     } else if (cmp == -1){ // if z2 <= z1+z0, sum will have -2^m(z2 - z1 - z0)
         sub_limbwise_dp(&z1z0, &z2, &z2z1z0);
         z2z1z0.sign = 1; // negative
-    } else{
-        bool z = 0; // if z2 == z1 + z0, sum wont have any of it
-    }
 
     // res += (z1 << 2m)
     add_limbwise_with_offset(res, &z1, res, 2*m);
@@ -437,11 +436,13 @@ void multkaratsuba(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res){
     add_limbwise_with_offset(res, &z0, res, 0);
 
     // res += or -= ((z2 - z1 - z0) << m)
-    if (z2z1z0.sign == 1) // if z2 - z1 - z0 < 0
-    {
-        sub_limbwise_with_offset(res, &z2z1z0, res, m);
-    } else {
-        add_limbwise_with_offset(res, &z2z1z0, res, m);
+    if (cmp){ // if z1z2z0 is nonzero
+        if (z2z1z0.sign == 1) // if z2 - z1 - z0 < 0
+        {
+            sub_limbwise_with_offset(res, &z2z1z0, res, m);
+        } else {
+            add_limbwise_with_offset(res, &z2z1z0, res, m);
+        }
     }
     return;
 }
