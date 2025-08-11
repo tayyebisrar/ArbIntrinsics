@@ -336,6 +336,28 @@ static void add_limbwise_dp(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, b
     *ov = overflow;
 }
 
+void sub_limbwise_dp(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res){
+    bool borrow = false, temp = false;
+    for (int i=op1->length-1; i>=0; i--){
+        limb_t op2limb = (i >= op2->length) ? 0 : op2->limbs[i];
+        limb_t result = op1->limbs[i] - op2limb;
+        temp = (result > op1->limbs[i]);
+        result -= borrow;
+        borrow = (temp || result > op1->limbs[i]);
+        res->limbs[i] = result;
+    }
+}
+
+static int cmp_limbs(arbfloat_t *x, arbfloat_t *y){
+    for (int i=0; i < (x->length >= y->length) ? x->length : y->length; i++){
+        limb_t xi = (i < x->length) ? x->limbs[i] : 0;
+        limb_t yi = (i < y->length) ? y->limbs[i] : 0;
+        if (xi > yi) return 1;
+        if (xi < yi) return -1;
+    }
+    return 0;
+}
+
 void multkaratsuba(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res){
     // xy = 2^2m(z1) + 2^m(z2 - z1 - z0) + z0
     // x = (2^m)x1 + x0, y = (2^m)y1 + y0
@@ -374,9 +396,17 @@ void multkaratsuba(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res){
     multkaratsuba(&x0x1, &y0y1, &z2); // z2 = (x0 + x1)(y0 + y1)
 
     // xy = 2^2m(z1) + 2^m(z2-z1-z0) + z0
-    arbfloat_t z2z1z0;
-    init_mult_limbs(&z2z1z0, ());
+    arbfloat_t z2z1z0; // z2 length > z0 length >= z1 length, z2 > z0 ?= z1
+    bool reg = (cmp_limbs(&z2, &z1) + cmp_limbs(&z2, &z0));
+    if (cmp_limbs(&z2, &z1)){
+        if (cmp_limbs(&z2, &z0)) {
+            init_mult_limbs(&z2z1z0, z2.length);
+            sub_limbwise_dp(&z2, &z0, &z2z1z0);
+            sub_limbwise_dp(&z2z1z0, &z1, &z2z1z0);
+        }
+    }
 
+    
 
     // res += (z1 << 2m)
     add_limbwise_with_offset(&z1, res, res, 2*m);
