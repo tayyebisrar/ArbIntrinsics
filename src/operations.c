@@ -313,28 +313,84 @@ static void init_mult_limbs(arbfloat_t *dest, int l){
 }
 
 static void add_limbwise_dp(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov){
-    bool overflow = false, temp = false; // indicates if need to carry something for next add. At start there is no previous carry
-    for (int i=op1->length-1; i >= 0; i--){ // for the last 4 or less limbs
-        limb_t op2limb = (i >= op2->length) ? 0 : op2->limbs[i];
-        limb_t result = op1->limbs[i] + op2limb;
-        temp = (result < op1->limbs[i]);
-        result += overflow;
-        overflow = (temp || result < op1->limbs[i]);
-        res->limbs[i] = result;
+    arbfloat_t *max = (op1->length >= op2->length) ? op1 : op2;
+    arbfloat_t *min = (op1->length >= op2->length) ? op2 : op1;
+    int diff = max->length - min->length;
+    if (!diff){ // same precision
+        bool overflow = false, temp = false; // indicates if need to carry something for next add. At start there is no previous carry
+        for (int i=max->length-1; i >= 0; i--){
+            limb_t result = op1->limbs[i] + op2->limbs[i];
+            temp = (result < op1->limbs[i]);
+            result += overflow;
+            overflow = (temp || result < op1->limbs[i]);
+            res->limbs[i] = result;
+        }
+        if (ov) *ov = overflow;
+        return;
     }
-    *ov = overflow;
+    else{
+        bool overflow = false, temp = false; // indicates if need to carry something for next add. At start there is no previous carry
+        int resoffset = diff + (res->length - max->length); // example 123 + 45, res = 0000, so diff = 1, resoffset = 1 + (4-3) = 2, so minlength goes 1, 0 (for 45's 5 and 4), max goes 2, 1, 0 (3, 2, 1) and res goes 3, 2, 1, 0
+        for (int i=min->length-1; i >= 0; i--){
+            limb_t op1limb = max->limbs[i+diff];
+            limb_t result = op1limb + min->limbs[i];
+            temp = (result < op1limb);
+            result += overflow;
+            overflow = (temp || result < op1limb);
+            res->limbs[i+resoffset] = result;
+        }
+        for (int i=diff-1, newoffset=resoffset-diff; i>=0; i--){ // any remaining limbs which precede the minimum, e.g. the 1 in 123 + 45. Needs to be added to whatever carried out
+            limb_t result = max->limbs[i];
+            result += overflow;
+            overflow = (result < max->limbs[i]);
+            res->limbs[i+newoffset] = result; //e.g. if reslimbs are 0-3 big endian, and 123+45 has the 1 left over, index 0 for 123 (1) goes in index 1 for res, so i+offset=0+1
+        }
+        if (overflow){ // if there still exists an overflow it'll go into the '+1' limb. This limb can either be 0 or 1
+            res->limbs[0]++; // overflow goes into the extra allocated limb
+        }
+        if (ov) *ov = false;
+        return;
+    }
+    
 }
 
-void sub_limbwise_dp(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res){
-    bool borrow = false, temp = false;
-    for (int i=op1->length-1; i>=0; i--){
-        limb_t op2limb = (i >= op2->length) ? 0 : op2->limbs[i];
-        limb_t result = op1->limbs[i] - op2limb;
-        temp = (result > op1->limbs[i]);
-        result -= borrow;
-        borrow = (temp || result > op1->limbs[i]);
-        res->limbs[i] = result;
+static void sub_limbwise_dp(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res){
+    arbfloat_t *max = (op1->length >= op2->length) ? op1 : op2;
+    arbfloat_t *min = (op1->length >= op2->length) ? op2 : op1;
+    int diff = max->length - min->length;
+    if (!diff){ // same precision
+        bool borrow = false, temp = false;
+        for (int i=op1->length-1; i>=0; i--){
+            limb_t result = op1->limbs[i] - op2->limbs[i];
+            temp = (result > op1->limbs[i]);
+            result -= borrow;
+            borrow = (temp || result > op1->limbs[i]);
+            res->limbs[i] = result;
+        }
     }
+    else{
+        bool borrow = false, temp = false; // indicates if need to carry something for next add. At start there is no previous carry
+        int resoffset = diff + (res->length - max->length); // example 123 + 45, res = 0000, so diff = 1, resoffset = 1 + (4-3) = 2, so minlength goes 1, 0 (for 45's 5 and 4), max goes 2, 1, 0 (3, 2, 1) and res goes 3, 2, 1, 0
+        for (int i=min->length-1; i >= 0; i--){
+            limb_t op1limb = max->limbs[i+diff];
+            limb_t result = op1limb - op2->limbs[i];
+            temp = (result > op1limb);
+            result -= borrow;
+            borrow = (temp || result > op1limb);
+            res->limbs[i+resoffset] = result;
+        }
+        for (int i=diff-1, newoffset=resoffset-diff; i>=0; i--){ // any remaining limbs which precede the minimum, e.g. the 1 in 123 + 45. Needs to be added to whatever carried out
+            limb_t result = 0ULL - max->limbs[i];
+            result -= borrow;
+            borrow = (result > max->limbs[i]);
+            res->limbs[i+newoffset] = result; //e.g. if reslimbs are 0-3 big endian, and 123+45 has the 1 left over, index 0 for 123 (1) goes in index 1 for res, so i+offset=0+1
+        }
+        if (borrow){ // if there still exists an overflow it'll go into the '+1' limb. This limb can either be 0 or INT_MAX
+            res->limbs[0] = 18446744073709551615; // overflow goes into the extra allocated limb
+        }
+        return;
+    }
+    
 }
 
 static int cmp_limbs(arbfloat_t *x, arbfloat_t *y){
@@ -367,7 +423,7 @@ static void add_limbwise_dp_with_offset(arbfloat_t *op1, arbfloat_t *op2, arbflo
     bool overflow = false, temp = false;
     for (int i=op1->length-1-offset; i>=0; i--){
         limb_t op2limb = (i+offset < 0) ? 0 : op2->limbs[i+offset];
-        limb_t result = op1->limbs[i] + op2->limbs[i];
+        limb_t result = op1->limbs[i] + op2limb;
         temp = (result < op1->limbs[i]);
         result += overflow;
         overflow = (temp || result < op1->limbs[i]);
