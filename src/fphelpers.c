@@ -32,7 +32,6 @@ void normalise(arbfloat_t *x){
     for (int i=0; i<NElimb; i++){
         left_shift(x, 32);
         left_shift(x, 32);
-        x->exponent -= 64;
     }
     left_shift(x, leadingzeroes);
     return;
