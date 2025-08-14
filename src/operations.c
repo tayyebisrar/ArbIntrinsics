@@ -170,7 +170,7 @@ void add_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov){
             cmp_gt = _mm256_srli_epi64(cmp_gt, 63); // shift to the right to get 0xFFF.. to 0x000..1
             maskedcarry = _mm256_and_si256(cmp_gt, mask);
             carryover = _mm256_or_si256(carryover, _mm256_and_si256(cmp_gt, next_carry_mask)); // limb0 out of 0-3 for the next iteration
-        }
+        } // ewfoiuhfewuhfeiuhfewiuhewfiuhewfiuhfewiuhewfiuhewfiuhfewiuhfewiuhfeiuewfhiuewfhiuewfhiuewfhiuewfhewifuhewfiuhewfiuhewfiuh
         _mm256_storeu_si256((__m256i *)(res->limbs + i), result); // store the result
     }
 
@@ -292,15 +292,12 @@ void multlimbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res){
 
 
 static __m256i _mm256_mulhi_epi64(arbfloat_t *op1, arbfloat_t *op2, int i, int j){
-    // Take the 4 regular 64-bit integers and store the 64 high bits from each
-    limb_t A[4];
-    for (int a=0; a < 4; a++){
-        A[a] = (limb_t)((((__uint128_t) op1->limbs[i]) * op2->limbs[j+a]) >> 64);
-    }
-    __m256i x;
-    _mm256_storeu_si256((__m256i *)A, x);
-    // TODO: Check the ordering of this storage - it might store the high bits backwards
-    return x;
+    return _mm256_set_epi64x(
+        (limb_t)((((__uint128_t) op1->limbs[i]) * op2->limbs[j+3]) >> 64),
+        (limb_t)((((__uint128_t) op1->limbs[i]) * op2->limbs[j+2]) >> 64),
+        (limb_t)((((__uint128_t) op1->limbs[i]) * op2->limbs[j+1]) >> 64),
+        (limb_t)((((__uint128_t) op1->limbs[i]) * op2->limbs[j+0]) >> 64)
+    );
 }
 
 void multsimd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res){
@@ -313,7 +310,7 @@ void multsimd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res){
     for (int i=op1->length-1; i>=0; i-=4){
         __m256i op1_group = _mm256_loadu_si256((const __m256i *)(op1->limbs + i));
         for (int j=op2->length-1; j>=0; j-=4){
-            int idx = i + j + 1; 
+            int idx = i + j - 3; // i + j + 1 - 4 (4 limbs) or is it i + j + 2 - 4 since with 1 limb we have i + j + 1 (i + j + 2 - 1)?
             // get the high and low bits for 4 limbs at a time
             __m256i los = _mm256_mullo_epi64(op1_group, _mm256_loadu_si256((const __m256i *)(op2->limbs + j)));
             __m256i his = _mm256_mulhi_epi64(op1, op2, i, j);
@@ -322,27 +319,55 @@ void multsimd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res){
             // add the 4 limbs to the current results
             sum = _mm256_add_epi64(rescur, los);
             // <=> sum < rescur (compute extra carry of 1s)
-            __m256i cmp_gt = _mm256_cmpgt_epu64(rescur, sum); 
+            __m256i cmp_gt = _mm256_cmpgt_epu64(rescur, sum);
+            // Shift the carries to be (correctly) 1 instead of INT_MAX 
             cmp_gt = _mm256_srli_epi64(cmp_gt, 63);
-            // add high bits to carry (hi + 1s, can't overflow) 
+            // add high bits to carry (hi + 1s, can't overflow twice so it's fine i think) 
             carry = _mm256_add_epi64(his, cmp_gt);
-            // Permute to 'shift left' by 1
+            // Permute to 'shift left' by 1, so the carry hovers above the next limb along, e.g. with 7 + 5 = 12, the 1 is shifted left
             carry = _mm256_permute4x64_epi64(carry, 0x39);
-            // isolate 0th (3rd) limb for next
+            // isolate 0th (3rd) limb for next set of 4 (since it wraps around to the start)
             carryover = _mm256_and_si256(carry, next_carry_mask);
-            // keep 1-3 (0-2)
+            // keep 1-3 (0-2) for this set
             carry = _mm256_and_si256(carry, mask);
-            // propagate carries until disappeared
-            while (!_mm256_testz_si256(carry, carry)){ // while there is a borrow, repeat. this instruction returns 1 if borrow is zero, 0 otherwise
-            // Propagate the borrows from within the same set of 4 limbs
-                new_result = _mm256_sub_epi64(result, maskedborrow); // each limb except limb 0 + either 0 or 1
-                cmp_gt = _mm256_cmpgt_epu64(new_result, result); // if *another* overflow happens, newresult.limb > result.limb
-                result = new_result;
-                cmp_gt = _mm256_permute4x64_epi64(cmp_gt, 0x39); // left shift
-                cmp_gt = _mm256_srli_epi64(cmp_gt, 63); // shift to the right to get 0xFFF.. to 0x000..1
-                maskedborrow = _mm256_and_si256(cmp_gt, mask);
-                borrowover = _mm256_or_si256(borrowover, _mm256_and_si256(cmp_gt, next_borrow_mask)); // limb0 out of 0-3 for the next iteration
+            // propagate carries until all are disappeared from carry
+            // TODO: use a version of the add_simd's propagation, or maybe a scalar version if it's faster
+            while (!_mm256_testz_si256(carry, carry)){ // while 1-3 limb carries not zero
+                // Add carries to the limbs
+                __m256i new_result = _mm256_add_epi64(sum, carry);
+                // Check for new overflow (<=> cmp_gt = (new_result < result))
+                cmp_gt = _mm256_cmpgt_epu64(sum, new_result);
+                // Replace sum with the carried version
+                sum = new_result;
+                // left shift and turn all 0xFFF.. to 0x000..1
+                cmp_gt = _mm256_permute4x64_epi64(cmp_gt, 0x39); 
+                cmp_gt = _mm256_srli_epi64(cmp_gt, 63);
+                // get rid of the last limb 
+                carry = _mm256_and_si256(cmp_gt, mask);
+                carryover = _mm256_or_si256(carryover, _mm256_and_si256(cmp_gt, next_carry_mask)); // limb0 out of 0-3 for the next iteration
             }
+            if (!_mm256_testz_si256(carryover, carryover)){ // if gone out of bounds of SIMD, but carry still exists, do scalar
+                // Don't think this is necessary anymore
+            }
+            /*OR
+            limb_t carries[4];
+            limb_t carry0 = carries[0];
+            _mm256_storeu_si256((__m256i*)carries, carry);
+            int c = 3;
+            while (k >= 0 && c > 0){
+                __uint128_t temp = (__uint128_t)res->limbs[k] + carries[c];
+                res->limbs[k] = (limb_t)temp;
+                if (temp >> 64) carries[c-1]++;
+                k--;
+                c--;
+            }
+            while (carry0 && k >= 0){
+                __uint128_t temp = (__uint128_t)res->limbs[k] + carry;
+                res->limbs[k] = (limb_t)temp;
+                carry = temp >> 64;
+                k--;
+            }
+            */
         }
     }
 }
