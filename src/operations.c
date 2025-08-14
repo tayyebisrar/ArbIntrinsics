@@ -310,12 +310,12 @@ void multsimd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res){
     for (int i=op1->length-1; i>=0; i-=4){
         __m256i op1_group = _mm256_loadu_si256((const __m256i *)(op1->limbs + i));
         for (int j=op2->length-1; j>=0; j-=4){
-            int idx = i + j - 3; // i + j + 1 - 4 (4 limbs) or is it i + j + 2 - 4 since with 1 limb we have i + j + 1 (i + j + 2 - 1)?
+            int idx = i + j - 2; // i + j + 1 - 3 (for the 3 extra limbs)
             // get the high and low bits for 4 limbs at a time
             __m256i los = _mm256_mullo_epi64(op1_group, _mm256_loadu_si256((const __m256i *)(op2->limbs + j)));
             __m256i his = _mm256_mulhi_epi64(op1, op2, i, j);
             // get current res limbs
-            __m256i rescur = _mm256_loadu_si256((const __m256i *)res->limbs + idx);
+            __m256i rescur = _mm256_loadu_si256((const __m256i *)(res->limbs + idx));
             // add the 4 limbs to the current results
             sum = _mm256_add_epi64(rescur, los);
             // <=> sum < rescur (compute extra carry of 1s)
@@ -332,7 +332,7 @@ void multsimd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res){
             carry = _mm256_and_si256(carry, mask);
             // propagate carries until all are disappeared from carry
             // TODO: use a version of the add_simd's propagation, or maybe a scalar version if it's faster
-            while (!_mm256_testz_si256(carry, carry)){ // while 1-3 limb carries not zero
+            while (!_mm256_testz_si256(carry, carry)){ 
                 // Add carries to the limbs
                 __m256i new_result = _mm256_add_epi64(sum, carry);
                 // Check for new overflow (<=> cmp_gt = (new_result < result))
@@ -344,12 +344,21 @@ void multsimd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res){
                 cmp_gt = _mm256_srli_epi64(cmp_gt, 63);
                 // get rid of the last limb 
                 carry = _mm256_and_si256(cmp_gt, mask);
-                carryover = _mm256_or_si256(carryover, _mm256_and_si256(cmp_gt, next_carry_mask)); // limb0 out of 0-3 for the next iteration
+                // add a carry 1 into the lost limb
+                carryover = _mm256_add_epi64(carryover, _mm256_and_si256(cmp_gt, next_carry_mask)); // add an extra 1
             }
-            if (!_mm256_testz_si256(carryover, carryover)){ // if gone out of bounds of SIMD, but carry still exists, do scalar
-                // Don't think this is necessary anymore
+            // store the result for those 4 limbs
+            _mm256_storeu_si256((__m256i *)(res->limbs + idx), sum);
+            // propagate anything that still needs to be carried (the carryover limb)
+            limb_t carry_temp = _mm256_extract_epi64(carryover, 0);
+            int k = idx - 1;
+            while (carry_temp && k >= 0){
+                __uint128_t temp = (__uint128_t)res->limbs[k] + carry_temp;
+                res->limbs[k] = (limb_t)temp;
+                carry_temp = temp >> 64;
+                k--;
             }
-            /*OR
+            /*OR something like
             limb_t carries[4];
             limb_t carry0 = carries[0];
             _mm256_storeu_si256((__m256i*)carries, carry);
