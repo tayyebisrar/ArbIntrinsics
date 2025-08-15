@@ -297,60 +297,63 @@ static __m256i _mm256_mulhi_epi64(arbfloat_t *op1, arbfloat_t *op2, int i, int j
         (limb_t)((((__uint128_t) op1->limbs[i]) * op2->limbs[j+2]) >> 64),
         (limb_t)((((__uint128_t) op1->limbs[i]) * op2->limbs[j+1]) >> 64),
         (limb_t)((((__uint128_t) op1->limbs[i]) * op2->limbs[j+0]) >> 64)
-    );
+    ); // does op1->limbs[i] * 4 op2 limbs, and stores the high bits
 }
+
+
+// for (int i=(op1->length % 4) -1; i >= 0; i--){
+/*
+    if (op1->length < op2->length){ // make sure op1 is always longer for max loop speed
+        arbfloat_t *temp = op1;
+        op1 = op2;
+        op2 = temp;
+    }
+        
+*/
 
 void multsimd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res){
     // Naive, schoolbook multiplication, accelerated with AVX2
     __m256i mask = _mm256_set_epi64x(0, -1, -1, -1);
     __m256i next_carry_mask = _mm256_set_epi64x(-1, 0, 0, 0);
     __m256i carryover = SIMD_ALL_ZEROES;
-    __m256i sum = SIMD_ALL_ZEROES;
-    __m256i carry = SIMD_ALL_ZEROES; // for semantics
-    for (int i=op1->length-1; i>=0; i-=4){
-        __m256i op1_group = _mm256_loadu_si256((const __m256i *)(op1->limbs + i));
-        for (int j=op2->length-1; j>=0; j-=4){
-            int idx = i + j - 2; // i + j + 1 - 3 (for the 3 extra limbs)
+    __m256i sum, carry;
+    limb_t limbsum, limbcarry;
+    for (int i=op1->length-1; i>=0; i--){
+        limb_t op1limb = op1->limbs[i];
+        __m256i op1_group = _mm256_set1_epi64x(op1limb); // limb_t is already a long long
+        for (int j=op2->length-4; j>=0; j-=4){ // Changed j: since it's a 4-limb vector, needs space when starting
+            int idx = i + j + 1;
             // get the high and low bits for 4 limbs at a time
             __m256i los = _mm256_mullo_epi64(op1_group, _mm256_loadu_si256((const __m256i *)(op2->limbs + j)));
             __m256i his = _mm256_mulhi_epi64(op1, op2, i, j);
-            // get current res limbs
             __m256i rescur = _mm256_loadu_si256((const __m256i *)(res->limbs + idx));
             // add the 4 limbs to the current results
             sum = _mm256_add_epi64(rescur, los);
             // <=> sum < rescur (compute extra carry of 1s)
             __m256i cmp_gt = _mm256_cmpgt_epu64(rescur, sum);
-            // Shift the carries to be (correctly) 1 instead of INT_MAX 
             cmp_gt = _mm256_srli_epi64(cmp_gt, 63);
-            // add high bits to carry (hi + 1s, can't overflow twice so it's fine i think) 
+            // add high bits to carry (hi + 1s can't overflow twice) 
             carry = _mm256_add_epi64(his, cmp_gt);
-            // Permute to 'shift left' by 1, so the carry hovers above the next limb along, e.g. with 7 + 5 = 12, the 1 is shifted left
             carry = _mm256_permute4x64_epi64(carry, 0x39);
-            // isolate 0th (3rd) limb for next set of 4 (since it wraps around to the start)
+            // separate lanes 0-2 and 3
             carryover = _mm256_and_si256(carry, next_carry_mask);
-            // keep 1-3 (0-2) for this set
             carry = _mm256_and_si256(carry, mask);
             // propagate carries until all are disappeared from carry
-            // TODO: use a version of the add_simd's propagation, or maybe a scalar version if it's faster
             while (!_mm256_testz_si256(carry, carry)){ 
-                // Add carries to the limbs
                 __m256i new_result = _mm256_add_epi64(sum, carry);
-                // Check for new overflow (<=> cmp_gt = (new_result < result))
                 cmp_gt = _mm256_cmpgt_epu64(sum, new_result);
                 // Replace sum with the carried version
                 sum = new_result;
-                // left shift and turn all 0xFFF.. to 0x000..1
                 cmp_gt = _mm256_permute4x64_epi64(cmp_gt, 0x39); 
                 cmp_gt = _mm256_srli_epi64(cmp_gt, 63);
                 // get rid of the last limb 
                 carry = _mm256_and_si256(cmp_gt, mask);
-                // add a carry 1 into the lost limb
-                carryover = _mm256_add_epi64(carryover, _mm256_and_si256(cmp_gt, next_carry_mask)); // add an extra 1
+                // propagate lost limb carry
+                carryover = _mm256_add_epi64(carryover, _mm256_and_si256(cmp_gt, next_carry_mask));
             }
-            // store the result for those 4 limbs
             _mm256_storeu_si256((__m256i *)(res->limbs + idx), sum);
-            // propagate anything that still needs to be carried (the carryover limb)
-            limb_t carry_temp = _mm256_extract_epi64(carryover, 0);
+            // propagate anything left
+            limb_t carry_temp = _mm256_extract_epi64(carryover, 3);
             int k = idx - 1;
             while (carry_temp && k >= 0){
                 __uint128_t temp = (__uint128_t)res->limbs[k] + carry_temp;
@@ -358,25 +361,21 @@ void multsimd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res){
                 carry_temp = temp >> 64;
                 k--;
             }
-            /*OR something like
-            limb_t carries[4];
-            limb_t carry0 = carries[0];
-            _mm256_storeu_si256((__m256i*)carries, carry);
-            int c = 3;
-            while (k >= 0 && c > 0){
-                __uint128_t temp = (__uint128_t)res->limbs[k] + carries[c];
+        }
+        for (int j=(op2->length % 4) -1; j >= 0; j--){
+            int idx = i + j + 1;
+            // get the high and low parts of the multiplication
+            __uint128_t res128 = ((__uint128_t)op1limb * (__uint128_t)op2->limbs[j]); // 81
+            limbsum = (limb_t)res128 + res->limbs[idx]; // low part
+            limbcarry = (limb_t)(res128 >> 64) + (limbsum < res->limbs[idx]); // hi + (0 or 1)
+            // propagate the carry until it dies out
+            int k = idx - 1;
+            while (limbcarry && k >= 0){
+                __uint128_t temp = (__uint128_t)res->limbs[k] + limbcarry;
                 res->limbs[k] = (limb_t)temp;
-                if (temp >> 64) carries[c-1]++;
-                k--;
-                c--;
-            }
-            while (carry0 && k >= 0){
-                __uint128_t temp = (__uint128_t)res->limbs[k] + carry;
-                res->limbs[k] = (limb_t)temp;
-                carry = temp >> 64;
+                limbcarry = temp >> 64;
                 k--;
             }
-            */
         }
     }
 }
