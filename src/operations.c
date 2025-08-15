@@ -318,6 +318,12 @@ void multsimd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res){
     __m256i carryover = SIMD_ALL_ZEROES;
     __m256i sum, carry;
     limb_t limbsum, limbcarry;
+    // ensure op2 (the accelerated one) is the longer operand
+    if (op1->length > op2->length){
+        arbfloat_t *temp = op1;
+        op1 = op2;
+        op2 = temp;
+    } 
     for (int i=op1->length-1; i>=0; i--){
         limb_t op1limb = op1->limbs[i];
         __m256i op1_group = _mm256_set1_epi64x(op1limb); // limb_t is already a long long
