@@ -124,6 +124,7 @@ int arbfloat_equal(arbfloat_t *a, arbfloat_t *b) {
     }
     for (size_t i = 0; i < a->length; i++) {
         if (a->limbs[i] != b->limbs[i]) {
+            printf("i=%i:\n", i);
             tobinary(a->limbs[i]);
             printf("\nvs\n");
             tobinary(b->limbs[i]);

@@ -311,6 +311,7 @@ static __m256i _mm256_mulhi_epi64(arbfloat_t *op1, arbfloat_t *op2, int i, int j
     }
         
 */
+#ifdef __AVX512F__
 
 void multsimd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res){
     // Naive, schoolbook multiplication, accelerated with AVX2
@@ -386,6 +387,8 @@ void multsimd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res){
         }
     }
 }
+
+#endif
 
 static void copy_arbfloat_with_offset(arbfloat_t* dest, const arbfloat_t *src, int offset, int limbs) {
     dest->length = (limbs) ? limbs : src->length;
