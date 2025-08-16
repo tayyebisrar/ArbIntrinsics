@@ -16,6 +16,7 @@ void sub_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool borrow
 void multlimbwise(arbfloat_t *op1, arbfloat_t* op2, arbfloat_t* res);
 void add_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov);
 void sub_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool borrowin);
+void multsimd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res);
 
 static __m256i SIGNBIT_MASK = (__m256i){
     0x8000000000000000ULL,
@@ -253,7 +254,7 @@ void multnaive(arbfloat_t *x, arbfloat_t *y, arbfloat_t *res, roundmode roundmod
     uint8_t grt_out = 0;
 
     bool overflowed;
-    multlimbwise(x, y, res); // TODO - stores 2p bits, we want the high p bits
+    multlimbwise(x, y, res);
     uint8_t gt;
     lowerlimbsgt(res, gt);
     res->length /= 2; // now ignore the lower p bits (might move into above function)
