@@ -8,23 +8,7 @@
 #include "operations.h"
 #include "add.h"
 
-static int arbfloat_equal(arbfloat_t *a, arbfloat_t *b) {
-    if (a->length != b->length || a->exponent != b->exponent || a->sign != b->sign || a->type != b->type) {
-        printf("Lengths: %zu vs %zu, Exponents: %d vs %d, Signs: %d vs %d, Types: %d vs %d\n",
-               a->length, b->length, a->exponent, b->exponent, a->sign, b->sign, a->type, b->type);
-        return 0; // Not equal
-    }
-    for (size_t i = 0; i < a->length; i++) {
-        if (a->limbs[i] != b->limbs[i]) {
-            tobinary(a->limbs[i]);
-            printf("\nvs\n");
-            tobinary(b->limbs[i]);
-            printf("\n");
-            return 0; // Not equal
-        }
-    }
-    return 1; // Equal
-}
+
 static void test_addnaive(){
     // Operands are not normalised
     // Tests for correct addition only
