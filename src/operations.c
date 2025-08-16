@@ -255,12 +255,12 @@ void multnaive(arbfloat_t *x, arbfloat_t *y, arbfloat_t *res, roundmode roundmod
 
     bool overflowed;
     multlimbwise(x, y, res);
-    uint8_t gt;
-    lowerlimbsgt(res, gt);
+    uint8_t gt = 0;
+    lowerlimbsgt(res, &gt);
     res->length /= 2; // now ignore the lower p bits (might move into above function)
     if (overflowed){
-        uint8_t tgt; // temp g, same as with add, either yields 000 or 100
-        right_shift(res, 1, tgt); // right_shift adjusts exponent accordingly
+        uint8_t tgt = 0; // temp g, same as with add, either yields 000 or 100
+        right_shift(res, 1, &tgt); // right_shift adjusts exponent accordingly
         gt = (gt >> 1) | (gt & 1) | (tgt >> 1); // update GT to newG(oldG+oldT)
         res->limbs[0] += (1ULL << 63); // since we had overflow, first limb, 0bbbbbbbbbb to 1bbbbbbbbbb
     } // this is the 'normalise'
