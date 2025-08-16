@@ -54,10 +54,10 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, roundmode roundmode)
         uint8_t grt = 0;
         if (op1->exponent != op2->exponent){ // since exponents are different, and op1's is larger, it can always be assumed here op1 > op2
             op2_copy = malloc(sizeof(arbfloat_t));
-            copy_arbfloat(op2_copy, op2, NULL);
+            copy_arbfloat(op2_copy, op2);
             op2 = op2_copy; // now op2 points to the copy
             op1_copy = malloc(sizeof(arbfloat_t));
-            copy_arbfloat(op1_copy, op1, NULL);
+            copy_arbfloat(op1_copy, op1);
             op1 = op1_copy;
             right_shift(op2, d, &grt); // using an aligned subtrahend
             uint8_t subtracted_grt = (8 - grt); // 00000111 = 0x07, computes (1)000 - GRT
@@ -99,7 +99,7 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, roundmode roundmode)
         if (d > 0) { // if difference in exps, align op2 by right shifting
             // use a (deep) copy of op2 instead to avoid changing op2, so reassign the op2 pointer to a copy
             op2_copy = malloc(sizeof(arbfloat_t));
-            copy_arbfloat(op2_copy, op2, NULL);
+            copy_arbfloat(op2_copy, op2);
             op2 = op2_copy; // now op2 points to the copy
             right_shift(op2, d, &grt);
         }
@@ -484,7 +484,7 @@ static void sub_limbwise_dp(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res){
             res->limbs[i+newoffset] = result; //e.g. if reslimbs are 0-3 big endian, and 123+45 has the 1 left over, index 0 for 123 (1) goes in index 1 for res, so i+offset=0+1
         }
         if (borrow){ // if there still exists an overflow it'll go into the '+1' limb. This limb can either be 0 or INT_MAX
-            res->limbs[0] = 18446744073709551615; // overflow goes into the extra allocated limb
+            res->limbs[0] = 18446744073709551615ULL; // overflow goes into the extra allocated limb
         }
         return;
     }
@@ -530,7 +530,7 @@ static void add_limbwise_dp_with_offset(arbfloat_t *op1, arbfloat_t *op2, arbflo
     *ov = overflow;
 }
 
-
+/*
 void multkaratsuba(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res){
     // xy = 2^2m(z1) + 2^m(z2 - z1 - z0) + z0
     // x = (2^m)x1 + x0, y = (2^m)y1 + y0
@@ -547,12 +547,12 @@ void multkaratsuba(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res){
     copy_arbfloat_with_offset(&x0, x, m, ARBINTR_LENGTH(x) - m);
     copy_arbfloat_with_offset(&y1, y, 0, m);
     copy_arbfloat_with_offset(&y0, y, m, ARBINTR_LENGTH(y) - m);
-
+*/
     /*if (ARBINTR_LENGTH(x) % 2 == 1){ // if length was odd, they won't be split evenly, so fix for addition
         append_limb(&x1, 0); // since m is floor(length/2), x1 and y1 will have 1 fewer limb, e.g. m = 2 when len = 5
         append_limb(&y1, 0);
     } can remove this part since i made add_limbwise_dp (different precision) */
-
+/*
     arbfloat_t z0, z1, z2, x0x1, y0y1; // can leave type, exponent, sign unused
     init_mult_limbs(&z0, (x0.length + y0.length)); // x0 * y0 needs len(x0) + len(y0) size
     init_mult_limbs(&z1, (x1.length + y1.length)); // same for x1 * y1
@@ -600,7 +600,7 @@ void multkaratsuba(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res){
     }
     return;
 }
-
+*/
 /*
 static void append_zero_limbs(arbfloat_t *x, int n){
     bool c = false;
