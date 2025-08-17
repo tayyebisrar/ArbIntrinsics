@@ -219,7 +219,7 @@ void lowerlimbsgt(arbfloat_t *x, uint8_t *gt){
     }
     // check the rest, skip the one checked
     for (int i = halflength+1; i < x->length; i++){
-        if (x->limbs[halflength] != 0){
+        if (x->limbs[i] != 0){
             (*gt) |= 0x1; // 000000G1
             return;
         }
