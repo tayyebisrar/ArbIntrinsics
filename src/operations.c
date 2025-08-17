@@ -13,7 +13,7 @@
 
 void add_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov);
 void sub_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool borrowin);
-void multlimbwise(arbfloat_t *op1, arbfloat_t* op2, arbfloat_t* res);
+void multlimbwise(arbfloat_t *op1, arbfloat_t* op2, arbfloat_t* res, bool *ov);
 void add_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov);
 void sub_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool borrowin);
 void multsimd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res);
@@ -254,22 +254,19 @@ void multnaive(arbfloat_t *x, arbfloat_t *y, arbfloat_t *res, roundmode roundmod
     uint8_t grt_out = 0;
 
     bool overflowed;
-    multlimbwise(x, y, res);
     uint8_t gt = 0;
-    lowerlimbsgt(res, &gt);
-    res->length /= 2; // now ignore the lower p bits (might move into above function)
+    multlimbwise(x, y, res, &overflowed);
     if (overflowed){
-        uint8_t tgt = 0; // temp g, same as with add, either yields 000 or 100
-        right_shift(res, 1, &tgt); // right_shift adjusts exponent accordingly
-        gt = (gt >> 1) | (gt & 1) | (tgt >> 1); // update GT to newG(oldG+oldT)
-        res->limbs[0] += (1ULL << 63); // since we had overflow, first limb, 0bbbbbbbbbb to 1bbbbbbbbbb
-    } // this is the 'normalise'
-
+        right_shift(res, 1, NULL); // right_shift() bumps exponent accordingly, no GT yet since it would be the 2p-1th bit (we dont need that)
+        res->limbs[0] += (1ULL << 63); // effectively right-shift the lost bit in (add to the empty spot)
+    } // this is 'normalise'
+    lowerlimbsgt(res, &gt); // check lower p bits for G and T
+    res->length /= 2; // now ignore the lower p bits (might move into above function)
     round_arbfloat(res, gt, roundmode);
 }
 
 
-void multlimbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res){
+void multlimbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res, bool *ov){
     // Method: Naive, schoolbook multiply
     limb_t carry = 0, sum = 0;
     for (int i=op1->length-1; i>=0; i--){
@@ -291,6 +288,7 @@ void multlimbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res){
             }
         }
     }
+    if (carry && ov) *ov = true;
 }
 
 
@@ -388,6 +386,7 @@ void multsimd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res){
             }
         }
     }
+    if (ov && limbcarry) *ov = true;
 }
 
 #endif

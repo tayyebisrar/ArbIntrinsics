@@ -15,14 +15,22 @@ void arbintr_mul(arbfloat_t *a, arbfloat_t *b, arbfloat_t* res, roundmode roundm
         res->type = ARBINTR_TYPE_NAN;
         return;
     }
+    else if (ARBINTR_IS_ZERO(a) || ARBINTR_IS_ZERO(b)){
+        // 0 * anything = Zero
+        if (ARBINTR_IS_INF(a) || ARBINTR_IS_INF(b)){
+            // unless it's infinity
+            res->type = ARBINTR_TYPE_NAN;
+            return;
+        }
+        res->type = ARBINTR_TYPE_ZERO;
+        res->sign = a->sign ^ b->sign;
+        return;
+    }
     else if (ARBINTR_IS_INF(a) || ARBINTR_IS_INF(b)){
         // Inf * anything = Inf
         res->type = ARBINTR_TYPE_INF;
         res->sign = a->sign ^ b->sign;
-    }
-    else if (ARBINTR_IS_ZERO(a) || ARBINTR_IS_ZERO(b)){
-        // 0 * anything = Zero
-        res->type = ARBINTR_TYPE_ZERO;
+        return;
     }
     else{
         // Make sure both are normalised
