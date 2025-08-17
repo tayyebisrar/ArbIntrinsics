@@ -279,6 +279,8 @@ void multlimbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t *res){
             __uint128_t res128 = ((__uint128_t)op1->limbs[i] * (__uint128_t)op2->limbs[j]); // 81
             sum = (limb_t)res128 + res->limbs[idx]; // low part
             carry = (limb_t)(res128 >> 64) + (sum < res->limbs[idx]); // hi + (0 or 1)
+            // store the low sum
+            res->limbs[idx] = sum;
             // propagate the carry until it dies out
             int k = idx - 1;
             while (carry && k >= 0){
