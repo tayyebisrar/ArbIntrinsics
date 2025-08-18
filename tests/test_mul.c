@@ -72,8 +72,71 @@ static void test_regular(){
     printf("Test regular multiplication passed.\n");
 }
 
+static void testzero(){
+    arbfloat_t x, y, res, expected;
+    limb_t limbs_x[] = {0x0}; // 0
+    new_arbfloat(&x, limbs_x, 1, 0, 0, ARBINTR_TYPE_ZERO); // x, limbs, length, exponent, sign, zero
+
+    limb_t limbs_y[] = {0x0}; // 0
+    new_arbfloat(&y, limbs_y, 1, 0, 0, ARBINTR_TYPE_ZERO); // y, limbs, length, exponent, sign, zero
+
+    arbintr_mul(&x, &y, &res, RNDN);
+    new_arbfloat(&expected, limbs_x, 1, 0, 0, ARBINTR_TYPE_ZERO); // expected result is also zero
+    assert((ARBINTR_IS_ZERO(&res)) && "Zero * zero multiplication failed");
+    printf("Zero * zero multiplication passed.\n");
+}
+
+static void testzeroadds(){
+    arbfloat_t x, y, res, expected;
+    limb_t limbs_x[] = {0x0}; // 0
+    new_arbfloat(&x, limbs_x, 1, 0, 0, ARBINTR_TYPE_ZERO); // x, limbs, length, exponent, sign, zero
+
+    limb_t limbs_y[] = {0x1234567890ABCDEF}; // 1 limb
+    new_arbfloat(&y, limbs_y, 1, 0, 0, ARBINTR_TYPE_NORMAL); // y, limbs, length, exponent, sign, normal
+    
+    arbintr_mul(&x, &y, &res, RNDN);
+
+    bool first_test = (ARBINTR_IS_ZERO(&res));
+    
+    arbintr_mul(&y, &x, &res, RNDN);
+
+    bool second_test = (ARBINTR_IS_ZERO(&res));
+
+    assert((first_test) && "Zero * y multiplication failed");
+    printf("Zero * y multiplication passed.\n");
+    assert((second_test) && "x * zero multiplication failed");
+    printf("x * zero multiplication passed.\n");
+}
+
+static void testinf(){
+    arbfloat_t x, y, res, expected;
+    limb_t limbs_x[] = {0x0}; // 0
+    new_arbfloat(&x, limbs_x, 1, 0, 0, ARBINTR_TYPE_INF); // x, limbs, length, exponent, sign, infinity
+
+    limb_t limbs_y[] = {0x0}; // 0
+    new_arbfloat(&y, limbs_y, 1, 0, 0, ARBINTR_TYPE_NORMAL); // y, limbs, length, exponent, sign, normal
+
+    arbintr_mul(&x, &y, &res, RNDN);
+
+    bool first_test = (ARBINTR_IS_INF(&res));
+    
+    x.type = ARBINTR_TYPE_ZERO; // set x = 0
+
+    arbintr_mul(&res, &x, &res, RNDN); // Inf * 0 = NaN
+
+    bool second_test = (ARBINTR_IS_NAN(&res));
+
+    assert((first_test) && "Normal * Inf multiplication failed");
+    printf("Normal * Inf multiplication passed.\n");
+    assert((second_test) && "Inf * 0 (NaN) multiplication failed");
+    printf("Inf * 0 (NaN) multiplication passed.\n");
+}
+
 int main(void){
     test_multnaive();
     test_regular();
+    testzero();
+    testzeroadds();
+    testinf();
     return 0;
 }
