@@ -262,7 +262,7 @@ void multnaive(arbfloat_t *x, arbfloat_t *y, arbfloat_t *res, roundmode roundmod
     } // this is 'normalise'
     lowerlimbsgt(res, &gt); // check lower p bits for G and T
     res->length /= 2; // now ignore the lower p bits (might move into above function)
-    round_arbfloat(res, gt, roundmode);
+    round_arbfloat(res, gt << 1, roundmode); // use 00000GT0
 }
 
 

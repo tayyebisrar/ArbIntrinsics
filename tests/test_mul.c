@@ -56,7 +56,7 @@ static void test_regular(){
     };
     new_arbfloat(&y, limbs_y, 4, 0, 0, ARBINTR_TYPE_NORMAL); // y, limbs, length, exponent, sign, normal
 
-    arbintr_mul(&x, &y, &res, RNDZ);
+    arbintr_mul(&x, &y, &res, RNDN);
     
     limb_t expected_limbs[] = {
         0xccff9e579d57a67d,
@@ -66,7 +66,7 @@ static void test_regular(){
     }; // 0xccff9e579d57a67d1de5a4ed45899113534acb2da4296f93324aaccdb574531b2f8b9cc34f5e7fd62a5f0be35f4878702c2772137c23b612082c0abc10230810
     // with last half gone: 0xccff9e579d57a67d1de5a4ed45899113534acb2da4296f93324aaccdb574531b
     // G=0, T=1
-    // final: 0xccff9e579d57a67d1de5a4ed45899113534acb2da4296f93324aaccdb574531c with RNDN
+    // final: 0xccff9e579d57a67d1de5a4ed45899113534acb2da4296f93324aaccdb574531b with RNDN
     new_arbfloat(&expected, expected_limbs, 4, -1, 0, ARBINTR_TYPE_NORMAL);
     assert((arbfloat_equal(&res, &expected) == 1) && "Regular multiplication failed");
     printf("Test regular multiplication passed.\n");
