@@ -40,7 +40,7 @@ void normalise(arbfloat_t *x){
 
 void left_shift(arbfloat_t *x, int m){
     if (m==0) return;
-    for (int i = 0, n = 63; i < m / 63; i++){
+    for (int i = 0, n = 32; i < m / 32; i++){
         x->exponent -= n; // shift exponent down
         limb_t mask = ~(((limb_t)1 << n) - 1); // bitmask, starts as all 1s and k 0s at the end
         // Runs from [0, length-4) to stop lengths divisible by 4 from running the last block SIMD
@@ -79,7 +79,7 @@ void left_shift(arbfloat_t *x, int m){
         int n = m % 32;
         x->exponent -= n;
         limb_t mask = ~(((limb_t)1 << n) - 1);
-        for (int i=x->length-4; i>=4; i-=4){
+        for (int i=x->length-4; i>=1; i-=4){
             __m256i curr4 = _mm256_loadu_si256((const __m256i *)(x->limbs + i));
             __m256i l_part = _mm256_slli_epi64(curr4, n); // l <-
             __m256i k_part = _mm256_srli_epi64(curr4, (64-n)); // k ->
@@ -107,47 +107,51 @@ void left_shift(arbfloat_t *x, int m){
 }
 
 
-void right_shift(arbfloat_t *x, int n, uint8_t *grt){ // for doing (R+T)
-    if (n==0){
-        return;
-    }
-    x->exponent += n;
-    // limb_t lost_bits is a 64-bit integer, while grt is a pointer to a uint8_t, which do not match in size
-    if (grt != NULL) {
-        *grt = 0;
-        limb_t lost_bits = x->limbs[x->length-1] & ((1ULL << n) - 1); // bits shifted out (= n <= 63 bits)
-        if (n >= 1) *grt |= ((lost_bits >> (n-1)) & 1) << 2; // G
-        if (n >= 2) *grt |= ((lost_bits >> (n-2)) & 1) << 1; // R
-        if (n >= 3) *grt |= (lost_bits & ((1ULL << (n-2)) - 1)) ? 1 : 0; // T
-    }
-    // Do the first 4 separately, since otherwise it will access limbs[-1]]
-    limb_t mask = (((limb_t)9223372036854775808ULL >> (n-1)) - 1); // mask of k 0s then all 1s
+void right_shift(arbfloat_t *x, int m, uint8_t *grt){ // for doing (R+T)
+    if (m==0) return;
+    
+    for (int i = 0, n = 32; i < m / 32; i++){
+        x->exponent += n;
+        // limb_t lost_bits is a 64-bit integer, while grt is a pointer to a uint8_t, which do not match in size
+        if (grt != NULL) {
+            *grt = 0;
+            limb_t lost_bits = x->limbs[x->length-1] & ((1ULL << n) - 1); // bits shifted out (= n <= 63 bits)
+            if (n >= 1) *grt |= ((lost_bits >> (n-1)) & 1) << 2; // G
+            if (n >= 2) *grt |= ((lost_bits >> (n-2)) & 1) << 1; // R
+            if (n >= 3) *grt |= (lost_bits & ((1ULL << (n-2)) - 1)) ? 1 : 0; // T
+        }
+        // Do the first 4 separately, since otherwise it will access limbs[-1]]
+        limb_t mask = (((limb_t)9223372036854775808ULL >> (n-1)) - 1); // mask of k 0s then all 1s
+        for (int i=0; i<x->length-5; i+=4){
+            __m256i curr4 = _mm256_loadu_si256((const __m256i *)(x->limbs + i)); // load the next 256 bits of integer data
+            __m256i l_part = _mm256_srli_epi64(curr4, n); // l ->
+            __m256i k_part = _mm256_slli_epi64(curr4, (64-n)); // k <-
+            __m256i permuted = _mm256_permute4x64_epi64(k_part, 0x39);
+            __m256i finalshifted = _mm256_or_si256(l_part, permuted);
+            _mm256_storeu_si256((__m256i *)(x->limbs + i), finalshifted);
 
-    for (int i=0; i<x->length-4; i+=4){
-        __m256i curr4 = _mm256_loadu_si256((const __m256i *)(x->limbs + i)); // load the next 256 bits of integer data
-        __m256i l_part = _mm256_srli_epi64(curr4, n); // l ->
-        __m256i k_part = _mm256_slli_epi64(curr4, (64-n)); // k <-
-        __m256i permuted = _mm256_permute4x64_epi64(k_part, 0x93);
-        __m256i finalshifted = _mm256_or_si256(l_part, permuted);
-        _mm256_storeu_si256((__m256i *)(x->limbs + i), finalshifted);
+            x->limbs[i+3] &= mask; // clear the first k bits
+            limb_t limb5 = x->limbs[i+4] << (64-n); // prev limb shifted up, going from lllkk to kk000..00
+            x->limbs[i+3] |= limb5; // new bitmask to set limb4's last k bits via bitwise AND. i.e., 000..1010 | kk...00 = kk...1010
+        }
 
-        x->limbs[i] &= mask; // clear the first k bits
-        limb_t limb5 = x->limbs[i-1] << (64-n); // prev limb shifted up, going from lllkk to kk000..00
-        x->limbs[i] |= limb5; // new bitmask to set limb4's last k bits via bitwise AND. i.e., 000..1010 | kk...00 = kk...1010
-    }
-
-    // Handle remaining limbs
-    for (int i=(x->length < 4) ? x->length-1 : 3 + x->length % 4; i >= 0; i--){
-        x->limbs[i] >>= n;
-        if (i != 0){
-            x->limbs[i] &= mask; // clear the first k bits
-            limb_t limb5 = x->limbs[i-1] << (64-n);
-            x->limbs[i] |= limb5;
+        // Handle remaining limbs
+        for (; i >= 0; i--){
+            x->limbs[i] >>= n;
+            if (i != 0){
+                x->limbs[i] &= mask; // clear the first k bits
+                limb_t limb5 = x->limbs[i-1] << (64-n);
+                x->limbs[i] |= limb5;
+            }
         }
     }
+    if ((m % 32)){
+        limb_t mask = (((limb_t)9223372036854775808ULL >> (n-1)) - 1); // mask of k 0s then all 1s
+    }
+    
 
-    // first limb may have garbage values at the start so need to clear them
-    x->limbs[0] &= mask;
+    // first limb may now have garbage values at the start so need to clear them
+    x->limbs[ARBINTR_LENGTH(x)-1] &= mask;
 }
 
 void copy_arbfloat(arbfloat_t* dest, const arbfloat_t *src) {
