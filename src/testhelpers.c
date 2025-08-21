@@ -6,21 +6,21 @@
 
 void display_arbfloat_limbs(arbfloat_t *x, int oneline);
 void tobinary(limb_t n);
-limb_t rand64(void);
+static limb_t rand64(void);
 void generate_random_arbfloat(arbfloat_t *x, size_t length);
 void print_m256i_binary(__m256i val, int gaps);
 
 void display_arbfloat_limbs(arbfloat_t *x, int oneline){
     if (oneline){
         printf("Number: ");
-        for (int i=0; i<x->length; i++){
+        for (int i=ARBINTR_LENGTH(x)-1; i>=0; i--){
             //printf("Limb %d: %lld\n", i, (x->limbs[i]));
             tobinary((x->limbs[i]));
         }
         printf("\n");
     }
     else{
-        for (int i=0; i<x->length; i++){
+        for (int i=ARBINTR_LENGTH(x)-1; i>=0; i--){
             //printf("Limb %d: %lld\n", i, (x->limbs[i]));
             printf("Limb %d:", i);
             tobinary((x->limbs[i]));
@@ -54,7 +54,7 @@ void tobinary(limb_t n) {
     printf("%s", binary); // Print the binary representation
 }
 
-limb_t rand64(void) {
+static limb_t rand64(void) {
     // RAND_MAX is 32767, using 16 bits
     // To generate a 64-bit random number we can combine multiple calls to rand()
     limb_t result = 0;
@@ -71,8 +71,8 @@ void display_normalised(arbfloat_t *x){
     }
     char binary[64]; // 63 bits and null
     binary[63] = '\0';
-    limb_t *n = malloc(sizeof(x->limbs[0]));
-    *n = x->limbs[0];
+    limb_t *n = malloc(sizeof(limb_t));
+    *n = x->limbs[ARBINTR_LENGTH(x)-1];
     for (int i = 62; i >= 0; i--) {
         binary[i] = (*n & 1) ? '1' : '0'; // Check the least significant bit
         *n >>= 1; // Right shift to process the next bit
@@ -110,7 +110,7 @@ void new_arbfloat(arbfloat_t *x, limb_t *limbs, size_t l, int exponent, bool sig
     x->type = type;
 
     if (limbs){
-        for (int i=0; i<l; i++){
+        for (int i=l-1; i>=0; i++){
             x->limbs[i] = limbs[i];
         }
     }
