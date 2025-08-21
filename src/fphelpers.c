@@ -254,14 +254,19 @@ void append_limb(arbfloat_t *x, limb_t limb){
     // Increase length of x's limb array if needed, then append limb_t with value limb
     if (x->length >= x->capacity) {
         x->capacity *= 2;
-        limb_t *newlimbs = realloc(x->limbs, x->capacity * sizeof(limb_t));
+        limb_t *newlimbs = malloc(x->capacity * sizeof(limb_t));
         if (newlimbs == NULL) {
             fprintf(stderr, "Could not allocate memory for new limbs\n");
             exit(EXIT_FAILURE);
         }
+        memcpy(newlimbs+1, x->limbs, x->length * sizeof(limb_t));
+        free(x->limbs);
         x->limbs = newlimbs;
     }
-    x->limbs[x->length] = limb;
+    else{
+        memmove(x->limbs+1, x->limbs, x->length * sizeof(limb_t));
+    }
+    x->limbs[0] = limb;
     x->length++;
 }
 
@@ -269,18 +274,17 @@ int compare_arbfloat_t(arbfloat_t *x, arbfloat_t *y){
     // x and y are of type normal, comparing mantissas only
     // returns 1 if x > y, -1 if x < y, 0 if x == y 
     // numbers MUST be normalised for this to work correctly
-    if (x->exponent != y->exponent){
-        if (x->exponent > y->exponent){ // if x has a bigger exponent it'll be bigger
-            return 1;
-        }
-        if (x->exponent < y->exponent){ // other way for y
-            return -1;
-        }
-    }
+    
+    if (x->exponent > y->exponent) return 1;
+    if (x->exponent < y->exponent) return -1;
+    
+    int maxlen = (x->length >= y->length) ? x->length : y->length;
+    int xoffset = maxlen - x->length;
+    int yoffset = maxlen - y->length;
 
-    for (int i=0; i < (x->length >= y->length) ? x->length : y->length; i++){
-        limb_t xi = (i < x->length) ? x->limbs[i] : 0;
-        limb_t yi = (i < y->length) ? y->limbs[i] : 0;
+    for (int i=maxlen-1; i>=0; i--){
+        limb_t xi = (i >= xoffset) ? x->limbs[i - xoffset] : 0;
+        limb_t yi = (i >= yoffset) ? y->limbs[i - yoffset] : 0;
         if (xi > yi) return 1;
         if (xi < yi) return -1;
     }
