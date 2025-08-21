@@ -67,13 +67,13 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, roundmode roundmode)
 
             // recompute GRT bits from extra limb
             uint8_t tgrt = 0;
-            limb_t extralimb = res->limbs[res->length-1];
+            limb_t extralimb = res->limbs[0];
             tgrt |= ((extralimb >> 63) & 1) << 2; // new G bit
             tgrt |= ((extralimb >> 62) & 1) << 1; // new R bit
             tgrt |= (extralimb & ((1ULL << (62)) - 1)) ? 1 : 0;
 
             // remove the extra limbs
-            res->length--;
+            truncate_limb(res);
 
             grt_out = tgrt;
         }
@@ -112,7 +112,7 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, roundmode roundmode)
             // then right shifted once, then bitwise OR'd with tgrt
             // i.e GRT -> 0G(R+T) -> TG(R+T) -> new GRT. 
             grt = (grt >> 1) | (grt & 1) | tgrt;
-            res->limbs[0] += (1ULL << 63); // since we needed overflow, first limb goes 0bbbbbbbbbb to 1bbbbbbbbbb
+            res->limbs[ARBINTR_LENGTH(x)-1] += (1ULL << 63); // since we needed overflow, first limb goes 0bbbbbbbbbb to 1bbbbbbbbbb
         }
         grt_out = grt;
     }

@@ -8,7 +8,8 @@
 
 void add_rnd(arbfloat_t *x, bool rnd){
     bool overflow = rnd;
-    int i=x->length-1;
+    int end= ARBINTR_LENGTH(x);
+    int i = 0;
     do{
         limb_t res = x->limbs[i] += overflow;
         overflow = 0;
@@ -16,10 +17,10 @@ void add_rnd(arbfloat_t *x, bool rnd){
             overflow = 1;
         }
         x->limbs[i] = res;
-    }while (overflow && i>=0);
+    }while (overflow && i<end);
     if (overflow){
         right_shift(x, 1, NULL);
-        x->limbs[0] += (1ULL << 63);
+        x->limbs[end-1] += (1ULL << 63);
     }
     return; // ditch any new GRT bits
 }
