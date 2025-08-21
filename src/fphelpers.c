@@ -100,9 +100,9 @@ void left_shift(arbfloat_t *x, int m){
         }
     }
     /* remove any now-empty limb(s) from the end of the array
-    while (x->length > 0 && x->limbs[x->length - 1] == 0) {
+    while (ARBINTR_LENGTH(x) > 0 && x->limbs[ARBINTR_LENGTH(x) - 1] == 0) {
         //free((limb_t *)(x->limbs[x->capacity - 1])); wont work because it's a contiguous block of memory
-        x->length--; // logically get rid of it like a stack pointer
+        ARBINTR_LENGTH(x)--; // logically get rid of it like a stack pointer
     } */
 }
 
@@ -252,19 +252,19 @@ void copy_arbfloat(arbfloat_t* dest, const arbfloat_t *src) {
 
 void append_limb(arbfloat_t *x, limb_t limb){
     // Increase length of x's limb array if needed, then append limb_t with value limb
-    if (x->length >= x->capacity) {
+    if (ARBINTR_LENGTH(x) >= x->capacity) {
         x->capacity *= 2;
         limb_t *newlimbs = malloc(x->capacity * sizeof(limb_t));
         if (newlimbs == NULL) {
             fprintf(stderr, "Could not allocate memory for new limbs\n");
             exit(EXIT_FAILURE);
         }
-        memcpy(newlimbs+1, x->limbs, x->length * sizeof(limb_t));
+        memcpy(newlimbs+1, x->limbs, ARBINTR_LENGTH(x) * sizeof(limb_t));
         free(x->limbs);
         x->limbs = newlimbs;
     }
     else{
-        memmove(x->limbs+1, x->limbs, x->length * sizeof(limb_t));
+        memmove(x->limbs+1, x->limbs, ARBINTR_LENGTH(x) * sizeof(limb_t));
     }
     x->limbs[0] = limb;
     x->length++;
@@ -278,9 +278,9 @@ int compare_arbfloat_t(arbfloat_t *x, arbfloat_t *y){
     if (x->exponent > y->exponent) return 1;
     if (x->exponent < y->exponent) return -1;
     
-    int maxlen = (x->length >= y->length) ? x->length : y->length;
-    int xoffset = maxlen - x->length;
-    int yoffset = maxlen - y->length;
+    int maxlen = (ARBINTR_LENGTH(x) >= ARBINTR_LENGTH(y)) ? ARBINTR_LENGTH(x) : ARBINTR_LENGTH(y);
+    int xoffset = maxlen - ARBINTR_LENGTH(x);
+    int yoffset = maxlen - ARBINTR_LENGTH(y);
 
     for (int i=maxlen-1; i>=0; i--){
         limb_t xi = (i >= xoffset) ? x->limbs[i - xoffset] : 0;
@@ -315,7 +315,7 @@ void check_overflow(arbfloat_t *x){
 
 void lowerlimbsgt(arbfloat_t *x, uint8_t *gt){
     // check 'first' limb (p+1 - p+64 of 2p bits)
-    const int halflength = x->length / 2;
+    const int halflength = ARBINTR_LENGTH(x) / 2;
     // set G bit based on the p+1th bit
     *gt |= ((uint8_t)(x->limbs[halflength-1] >> 63) << 1); // 000000G0
     // check for any bit (except G) being 1, onward

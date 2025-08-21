@@ -136,7 +136,7 @@ void addnaive(arbfloat_t *x, arbfloat_t *y,arbfloat_t *res, roundmode roundmode)
 
 void add_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov){
     bool overflow = false, temp = false; // indicates if need to carry something for next add. At start there is no previous carry
-    for (int i=op1->length-1; i >= 0; i--){ // for the last 4 or less limbs
+    for (int i=0; i < op1->length; i++){ // for the last 4 or less limbs
         limb_t result = op1->limbs[i] + op2->limbs[i];
         temp = (result < op1->limbs[i]);
         result += overflow;
@@ -147,18 +147,18 @@ void add_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov){
 }
 
 void add_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov){
-    __m256i mask = _mm256_set_epi64x(0, -1, -1, -1);
-    __m256i next_carry_mask = _mm256_set_epi64x(-1, 0, 0, 0);
+    __m256i mask = _mm256_set_epi64x(-1, -1, -1, 0);
+    __m256i next_carry_mask = _mm256_set_epi64x(0, 0, 0, -1);
     __m256i new_result;
     __m256i carryover = SIMD_ALL_ZEROES; // starts with no carry
-    for (int i = op1->length - 4; i >= 0; i -= 4) {
+    for (int i = 0; i < op1->length; i += 4) {
         __m256i a = _mm256_loadu_si256((const __m256i *)(op1->limbs + i));
         __m256i b = _mm256_loadu_si256((const __m256i *)(op2->limbs + i));
         __m256i result = _mm256_add_epi64(a, b); // add the 4 limbs
         __m256i cmp_gt = _mm256_cmpgt_epu64(a, result); // <=> result < a
         result = _mm256_add_epi64(result, carryover); // add the carry
         __m256i cmp_gt_with_carry = _mm256_or_si256(cmp_gt, _mm256_cmpgt_epu64(a, result));
-        cmp_gt_with_carry = _mm256_permute4x64_epi64(cmp_gt_with_carry, 0x39); // moves each limb left by 1, so all limbs (except the first) can be directly added
+        cmp_gt_with_carry = _mm256_permute4x64_epi64(cmp_gt_with_carry, 0x93); // moves each limb right by 1, so all limbs (except the first) can be directly added
         cmp_gt_with_carry = _mm256_srli_epi64(cmp_gt_with_carry, 63); // shifts 0xFFF.. to 0x000..1, so any carry limbs can now be added
         __m256i maskedcarry = _mm256_and_si256(cmp_gt_with_carry, mask);
         carryover = _mm256_and_si256(cmp_gt_with_carry, next_carry_mask); // carryover is the carry for the next iteration);
@@ -167,7 +167,7 @@ void add_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov){
             new_result = _mm256_add_epi64(result, maskedcarry); // each limb except limb 0 + either 0 or 1
             cmp_gt = _mm256_cmpgt_epu64(result, new_result); // if *another* overflow happens, newresult.limb < result.limb
             result = new_result;
-            cmp_gt = _mm256_permute4x64_epi64(cmp_gt, 0x39); // left shift
+            cmp_gt = _mm256_permute4x64_epi64(cmp_gt, 0x93); // right shift
             cmp_gt = _mm256_srli_epi64(cmp_gt, 63); // shift to the right to get 0xFFF.. to 0x000..1
             maskedcarry = _mm256_and_si256(cmp_gt, mask);
             carryover = _mm256_or_si256(carryover, _mm256_and_si256(cmp_gt, next_carry_mask)); // limb0 out of 0-3 for the next iteration
@@ -176,10 +176,10 @@ void add_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov){
     }
 
     // If carryover is not zero, there is an overall overflow
-    bool overflow = false, temp = false; 
-    overflow = !_mm256_testz_si256(carryover, carryover);
+    bool temp = false; 
+    bool overflow = !_mm256_testz_si256(carryover, carryover);
     // Handle any remaining limbs (less than 4)
-    for (int i=(op1->length % 4) -1; i >= 0; i--){
+    for (int i=(op1->length / 4) * 4; i < op1->length; i++){
         limb_t result = op1->limbs[i] + op2->limbs[i];
         temp = (result < op1->limbs[i]);
         result += overflow;
@@ -191,7 +191,7 @@ void add_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov){
 
 void sub_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool borrowin){
     bool borrow = borrowin, temp = false;
-    for (int i=op1->length-1; i>=0; i--){
+    for (int i=0; i < op1->length; i++){
         limb_t result = op1->limbs[i] - op2->limbs[i];
         temp = (result > op1->limbs[i]);
         result -= borrow;
@@ -201,18 +201,18 @@ void sub_limbwise(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool borrow
 }
 
 void sub_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool borrowin){
-    __m256i mask = _mm256_set_epi64x(0, -1, -1, -1);
-    __m256i next_borrow_mask = _mm256_set_epi64x(-1, 0, 0, 0);
+    __m256i mask = _mm256_set_epi64x(-1, -1, -1, 0);
+    __m256i next_borrow_mask = _mm256_set_epi64x(0, 0, 0, -1);
     __m256i new_result;
-    __m256i borrowover = (borrowin) ? _mm256_set_epi64x(1, 0, 0, 0) : SIMD_ALL_ZEROES;
-    for (int i = op1->length - 4; i >= 0; i -= 4) {
+    __m256i borrowover = (borrowin) ? _mm256_set_epi64x(0, 0, 0, 1) : SIMD_ALL_ZEROES;
+    for (int i = 0; i < op1->length; i += 4) {
         __m256i a = _mm256_loadu_si256((const __m256i *)(op1->limbs + i));
         __m256i b = _mm256_loadu_si256((const __m256i *)(op2->limbs + i));
         __m256i result = _mm256_sub_epi64(a, b); // subtract the 4 limbs
         __m256i cmp_gt = _mm256_cmpgt_epu64(result, a); // <=> result > a
         result = _mm256_sub_epi64(result, borrowover); // subtract the borrow
         __m256i cmp_gt_with_borrow = _mm256_or_si256(cmp_gt, _mm256_cmpgt_epu64(result, a));
-        cmp_gt_with_borrow = _mm256_permute4x64_epi64(cmp_gt_with_borrow, 0x39); // moves each limb left by 1, so all limbs (except the first) can be directly added
+        cmp_gt_with_borrow = _mm256_permute4x64_epi64(cmp_gt_with_borrow, 0x93); // moves each limb right by 1, so all limbs (except the first) can be directly added
         cmp_gt_with_borrow = _mm256_srli_epi64(cmp_gt_with_borrow, 63); // shifts 0xFFF.. to 0x000..1, so any borrow limbs can now be added
         __m256i maskedborrow = _mm256_and_si256(cmp_gt_with_borrow, mask);
         borrowover = _mm256_and_si256(cmp_gt_with_borrow, next_borrow_mask); // borrowover is the borrow for the next iteration
@@ -221,7 +221,7 @@ void sub_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool borrowin){
             new_result = _mm256_sub_epi64(result, maskedborrow); // each limb except limb 0 + either 0 or 1
             cmp_gt = _mm256_cmpgt_epu64(new_result, result); // if *another* overflow happens, newresult.limb > result.limb
             result = new_result;
-            cmp_gt = _mm256_permute4x64_epi64(cmp_gt, 0x39); // left shift
+            cmp_gt = _mm256_permute4x64_epi64(cmp_gt, 0x93); // right shift
             cmp_gt = _mm256_srli_epi64(cmp_gt, 63); // shift to the right to get 0xFFF.. to 0x000..1
             maskedborrow = _mm256_and_si256(cmp_gt, mask);
             borrowover = _mm256_or_si256(borrowover, _mm256_and_si256(cmp_gt, next_borrow_mask)); // limb0 out of 0-3 for the next iteration
@@ -230,10 +230,10 @@ void sub_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool borrowin){
     }
 
     // If borrowover is not zero, there is an overall overflow
-    bool borrow = false, temp = false;
-    borrow = !_mm256_testz_si256(borrowover, borrowover);
+    bool temp = false;
+    bool borrow = !_mm256_testz_si256(borrowover, borrowover);
     // Handle any remaining limbs (less than 4)
-    for (int i=(op1->length % 4) -1; i >= 0; i--){
+    for (int i= (op1->length / 4) * 4; i < op1->length; i++){
         limb_t result = op1->limbs[i] - op2->limbs[i];
         temp = (result > op1->limbs[i]);
         result -= borrow;
