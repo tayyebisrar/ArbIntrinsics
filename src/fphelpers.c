@@ -107,22 +107,68 @@ void left_shift(arbfloat_t *x, int m){
 }
 
 
-void right_shift(arbfloat_t *x, int m, uint8_t *grt){ // for doing (R+T)
+void right_shift(arbfloat_t *x, int m, uint8_t *grt){
     if (m<=0) return;
     
     if (grt != NULL) {
         *grt = 0;
-        // likely
-        if (m < 64){
-            limb_t lost_bits = x->limbs[0] & ((1ULL << m) - 1); // bits shifted out (= n <= 63 bits)
-            if (m >= 1) *grt |= ((lost_bits >> (m-1)) & 1) << 2; // G
-            if (m >= 2) *grt |= ((lost_bits >> (m-2)) & 1) << 1; // R
-            if (m >= 3) *grt |= (lost_bits & ((1ULL << (m-2)) - 1)) ? 1 : 0; // T
+        if (m <= 64){ // likely
+            if (m >= 1) *grt |= ((x->limbs[0] >> (m-1)) & 1) << 2; // G
+            if (m >= 2) *grt |= ((x->limbs[0] >> (m-2)) & 1) << 1; // R
+            if (m >= 3) *grt |= (x->limbs[0] & ((1ULL << (m-2)) - 1)) ? 1 : 0; // T
         }
         else{
-            // firstlimbindex = (m / 64) - 1
-            // leftover = m % 64
-            
+            int limb_idx = (m / 64), bit_idx = (m % 64);
+             // G
+            if (bit_idx){ // bit_idx > 0, 
+                *grt |= ((x->limbs[limb_idx] >> (bit_idx-1)) & 1) << 2;
+            }
+            else {
+                *grt |= ((x->limbs[limb_idx-1] >> 63) & 1) << 2; // G is the top bit of prev limb (64th) 
+            }
+
+            // R
+            if (bit_idx <= 1){
+                *grt |= ((x->limbs[limb_idx-1] >> (62 + bit_idx)) & 2) << 1; // if G is at the beginning of the next (bitidx = 0, R is the 2nd along (reach by rightshifting by 62))
+                // if G is at the end of the first limb (bitidx = 1), R is at the beginning of the next, reach by rightshifting 63 (62 + 1).
+            }
+            else{
+                *grt |= ((x->limbs[limb_idx] >> (bit_idx - 2)) & 2) << 1;
+                // R is in the same limb as G
+            }
+
+            // T
+            // Loop through totally-lost limbs and lost bits, except G and R, to find anything nonzero
+            // bit_idx = 2 is easiest - just check all preceding limbs
+            // bit_idx > 2 means checking same limb without G and R
+            // bit_idx < 2 means checking prev limb without G and R
+
+            // combine = 2 and <= 2 using << 2-bit_idx (if = 2, checks whole limb (<< 0), else checks without G (=1) or GR (=0))
+            if (bit_idx <= 2){
+                if ((x->limbs[limb_idx - 1]) << (2-bit_idx)){
+                    *grt |= 1;
+                }
+                if (!(*grt & 1)){ // still need to find a 1?
+                    for (int i=limb_idx-2; i>=0; i--){
+                        if (x->limbs[i]){
+                            *grt |= 1;
+                            break;
+                        }
+                    }
+                }
+            }
+            else{
+                *grt |= (x->limbs[limb_idx] & ((1ULL << (bit_idx-2)) - 1)) ? 1 : 0;
+
+                if (!(*grt & 1)){
+                    for (int i=limb_idx-1; i>=0; i--){
+                        if (x->limbs[i]){
+                            *grt |= 1;
+                            break;
+                        }
+                    }
+                }
+            }
         }
     }
 
