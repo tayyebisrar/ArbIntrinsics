@@ -270,6 +270,11 @@ void append_limb(arbfloat_t *x, limb_t limb){
     x->length++;
 }
 
+void truncate_limb(arbfloat_t *x){
+    memmove(x->limbs, x->limbs+1, (ARBINTR_LENGTH(x) - 1) * sizeof(limb_t));
+    x->length--;
+}
+
 int compare_arbfloat_t(arbfloat_t *x, arbfloat_t *y){
     // x and y are of type normal, comparing mantissas only
     // returns 1 if x > y, -1 if x < y, 0 if x == y 
