@@ -171,7 +171,7 @@ void add_simd(arbfloat_t *op1, arbfloat_t *op2, arbfloat_t* res, bool *ov){
             cmp_gt = _mm256_srli_epi64(cmp_gt, 63); // shift to the right to get 0xFFF.. to 0x000..1
             maskedcarry = _mm256_and_si256(cmp_gt, mask);
             carryover = _mm256_or_si256(carryover, _mm256_and_si256(cmp_gt, next_carry_mask)); // limb0 out of 0-3 for the next iteration
-        } // ewfoiuhfewuhfeiuhfewiuhewfiuhewfiuhfewiuhewfiuhewfiuhfewiuhfewiuhfeiuewfhiuewfhiuewfhiuewfhiuewfhewifuhewfiuhewfiuhewfiuh
+        }
         _mm256_storeu_si256((__m256i *)(res->limbs + i), result); // store the result
     }
 
