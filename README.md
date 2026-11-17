@@ -5,9 +5,7 @@ ArbIntrinsics is a high-precision arbitrary-precision floating-point arithmetic 
 It was initially developed as a first-year internship project and demonstrates advanced techniques in numerical computing, low-level optimisation, and vectorised programming.
 It was tested on DiRAC COSMA's supercomputing facility.
 
-Actively under a complete refactor to little-endian, so at the current moment tests do not work.
-
-Current development is unfortunately sporadic due to other commitments.
+Actively under a complete refactor to little-endian.
 
 ## Requirements
 
